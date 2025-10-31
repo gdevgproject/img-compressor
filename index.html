@@ -143,7 +143,10 @@
       }
       .main-actions {
         text-align: right;
-        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
       }
       .btn {
         padding: 12px 25px;
@@ -165,6 +168,15 @@
       }
       #resetBtn:hover {
         background-color: #5a6268;
+      }
+
+      /* === CSS CHO NÚT SAO CHÉP MỚI === */
+      #copyResultsBtn {
+        background-color: #17a2b8;
+        color: white;
+      }
+      #copyResultsBtn:hover {
+        background-color: #138496;
       }
 
       /* === GIAO DIỆN HIỂN THỊ ĐA CẤU HÌNH === */
@@ -210,7 +222,7 @@
         background-color: #218838;
       }
 
-      /* === KHU VỰC PREVIEW NÂNG CAO === */
+      /* === KHU VỰC PREVIEW NÂNG CAO (Không đổi) === */
       #preview-section {
         margin-top: 2.5rem;
         padding-top: 1.5rem;
@@ -280,8 +292,6 @@
         font-style: italic;
         min-height: 1.2em;
       }
-
-      /* Các style cho thiết bị (Laptop, Desktop, TV) không thay đổi */
       #preview-frame.device-web {
         width: 80%;
         background: #fff;
@@ -314,6 +324,8 @@
         background: #111;
         padding: 4px;
         box-sizing: border-box;
+        display: flex;
+        align-items: flex-start;
       }
       #preview-frame.device-mobile::before {
         content: "";
@@ -328,15 +340,12 @@
         border-bottom-right-radius: 10px;
         z-index: 2;
       }
-
-      /* === SỬA LỖI PREVIEW MOBILE TẠI ĐÂY === */
       #preview-frame.device-mobile #previewImage {
-        width: 100%; /* Vừa chiều ngang */
-        height: auto; /* Chiều cao tự động theo tỷ lệ ảnh */
-        object-fit: contain; /* Đảm bảo không bị cắt xén */
+        width: 100%;
+        height: auto;
+        object-fit: contain;
         border-radius: 28px;
       }
-
       #preview-area.desktop-bg {
         background-color: #212529;
       }
@@ -453,6 +462,8 @@
 
       <div id="results-area">
         <div class="main-actions">
+          <!-- NÚT MỚI ĐƯỢC THÊM VÀO ĐÂY -->
+          <button id="copyResultsBtn" class="btn">📋 Sao chép Kết quả</button>
           <button id="resetBtn" class="btn">Chọn ảnh khác</button>
         </div>
 

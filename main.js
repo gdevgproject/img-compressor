@@ -1,4 +1,4 @@
-// main.js (PHIÊN BẢN V5.3 - Sửa lỗi TV Preview)
+// main.js (PHIÊN BẢN V5.4 - Tích hợp Sao chép Kết quả)
 document.addEventListener("DOMContentLoaded", () => {
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
@@ -19,6 +19,9 @@ document.addEventListener("DOMContentLoaded", () => {
     "generatedVersionsList"
   );
 
+  // === KHAI BÁO BIẾN CHO NÚT SAO CHÉP ===
+  const copyResultsBtn = document.getElementById("copyResultsBtn");
+
   // DOM cho Preview
   const previewArea = document.getElementById("preview-area");
   const previewFrame = document.getElementById("preview-frame");
@@ -28,38 +31,30 @@ document.addEventListener("DOMContentLoaded", () => {
   let tvModal = null;
 
   // Biến lưu trữ trạng thái
+  let originalFileData = {};
   let generatedProfiles = [];
   let blobUrls = [];
 
   const compressWorker = new Worker("compress.worker.js");
 
-  // --- Logic điều khiển Preview Thông minh ---
+  // --- Logic điều khiển Preview (Không đổi) ---
   previewControls.addEventListener("click", (e) => {
     if (!e.target.matches(".preview-btn:not(.disabled)")) return;
-
     previewControls
       .querySelectorAll(".preview-btn")
       .forEach((btn) => btn.classList.remove("active"));
     e.target.classList.add("active");
     const device = e.target.dataset.device;
-
     const profileMap = { web: "Laptop", mobile: "Mobile", tv: "TV" };
     const profileName = profileMap[device];
     const targetProfile = generatedProfiles.find((p) => p.name === profileName);
-
-    if (!targetProfile) return; // Không tìm thấy profile, không làm gì cả
-
+    if (!targetProfile) return;
     if (tvModal) tvModal.classList.remove("visible");
-
     if (device === "tv") {
       if (!tvModal) createTvModal();
-
-      // === SỬA LỖI TV PREVIEW TẠI ĐÂY ===
-      // Luôn chủ động cập nhật nguồn ảnh của TV modal ngay trước khi hiển thị
       tvModal.querySelector("img").src = targetProfile.blobUrl;
       tvModal.classList.add("visible");
     } else {
-      // Cập nhật cho các preview khác (Laptop, Mobile)
       updatePreviewImage(targetProfile.blobUrl);
       const frameDeviceMap = { Laptop: "web", Mobile: "mobile" };
       previewFrame.className = `device-${frameDeviceMap[profileName] || "web"}`;
@@ -71,7 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function updatePreviewImage(url) {
     previewImage.src = url;
   }
-
   function updatePreviewInfo(device) {
     const infoTexts = {
       web: "Mô phỏng hiển thị trên Laptop.",
@@ -81,16 +75,11 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     previewInfo.textContent = infoTexts[device];
   }
-
   function createTvModal() {
     tvModal = document.createElement("div");
     tvModal.className = "device-tv-modal";
-    tvModal.innerHTML = `
-            <button class="close-tv-preview">&times;</button>
-            <div class="tv-bezel"><div class="tv-screen"><img src="" alt="TV Preview" /></div></div>
-            <div class="preview-info"></div>`;
+    tvModal.innerHTML = `<button class="close-tv-preview">&times;</button><div class="tv-bezel"><div class="tv-screen"><img src="" alt="TV Preview" /></div></div><div class="preview-info"></div>`;
     document.body.appendChild(tvModal);
-
     tvModal.querySelector(".close-tv-preview").addEventListener("click", () => {
       tvModal.classList.remove("visible");
       const tvButton = previewControls.querySelector('[data-device="tv"]');
@@ -128,11 +117,14 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadArea.style.display = "block";
     blobUrls.forEach((url) => URL.revokeObjectURL(url));
     blobUrls = [];
+    originalFileData = {};
     generatedProfiles = [];
     imageInput.value = "";
     generatedVersionsList.innerHTML = "";
-    if (tvModal) document.body.removeChild(tvModal); // Xóa hẳn modal để reset hoàn toàn
-    tvModal = null;
+    if (tvModal) {
+      document.body.removeChild(tvModal);
+      tvModal = null;
+    }
     previewControls.querySelectorAll(".preview-btn").forEach((btn) => {
       btn.classList.add("disabled");
       btn.classList.remove("active");
@@ -157,13 +149,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const img = new Image();
     img.src = originalURL;
     img.onload = () => {
+      // === LƯU LẠI DỮ LIỆU GỐC ĐỂ SAO CHÉP ===
+      originalFileData = {
+        type: file.type,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        size: file.size,
+      };
       originalInfo.innerHTML = `
-                <li><span>Định dạng:</span> <span>${file.type}</span></li>
-                <li><span>Kích thước:</span> <span>${img.naturalWidth}x${
-        img.naturalHeight
+                <li><span>Định dạng:</span> <span>${
+                  originalFileData.type
+                }</span></li>
+                <li><span>Kích thước:</span> <span>${originalFileData.width}x${
+        originalFileData.height
       } px</span></li>
                 <li><span>Dung lượng:</span> <span>${formatBytes(
-                  file.size
+                  originalFileData.size
                 )}</span></li>
             `;
       compressWorker.postMessage({ file: file });
@@ -173,38 +174,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Lắng nghe kết quả từ Worker ---
   compressWorker.onmessage = (e) => {
     const data = e.data;
-
     if (data.status === "progress") {
       updateProgress(data.percent, data.message);
     } else if (data.status === "complete") {
       generatedProfiles = data.allProfiles;
       generatedVersionsList.innerHTML = "";
-
       generatedProfiles.forEach((profile) => {
         const blobUrl = URL.createObjectURL(profile.blob);
         blobUrls.push(blobUrl);
         profile.blobUrl = blobUrl;
-
         const card = document.createElement("div");
         card.className = "version-card";
-        card.innerHTML = `
-                    <h4>Phiên bản ${profile.name}</h4>
-                    <ul>
-                        <li><span>Kích thước:</span> <span>${profile.width}x${
+        card.innerHTML = `<h4>Phiên bản ${
+          profile.name
+        }</h4><ul><li><span>Kích thước:</span> <span>${profile.width}x${
           profile.height
-        } px</span></li>
-                        <li><span>Dung lượng:</span> <span>${formatBytes(
-                          profile.blob.size
-                        )}</span></li>
-                        <li><span>Chất lượng:</span> <span>~${(
-                          profile.quality * 100
-                        ).toFixed(0)}%</span></li>
-                    </ul>
-                    <a href="${blobUrl}" download="compressed_${profile.name.toLowerCase()}.webp" class="btn download-version-btn">Tải phiên bản này</a>
-                `;
+        } px</span></li><li><span>Dung lượng:</span> <span>${formatBytes(
+          profile.blob.size
+        )}</span></li><li><span>Chất lượng:</span> <span>~${(
+          profile.quality * 100
+        ).toFixed(
+          0
+        )}%</span></li></ul><a href="${blobUrl}" download="compressed_${profile.name.toLowerCase()}.webp" class="btn download-version-btn">Tải phiên bản này</a>`;
         generatedVersionsList.appendChild(card);
       });
-
       const profileMap = { TV: "tv", Laptop: "web", Mobile: "mobile" };
       generatedProfiles.forEach((profile) => {
         const device = profileMap[profile.name];
@@ -215,12 +208,10 @@ document.addEventListener("DOMContentLoaded", () => {
           if (btn) btn.classList.remove("disabled");
         }
       });
-
       const defaultBtn =
         previewControls.querySelector('[data-device="web"]:not(.disabled)') ||
         previewControls.querySelector(".preview-btn:not(.disabled)");
       if (defaultBtn) defaultBtn.click();
-
       updateProgress(100, "Hoàn tất!");
       infoMessage.textContent = `Đã tạo thành công ${generatedProfiles.length} phiên bản.`;
       resultsArea.style.display = "block";
@@ -229,6 +220,43 @@ document.addEventListener("DOMContentLoaded", () => {
       updateProgress(0, "LỖI XỬ LÝ");
     }
   };
+
+  // === LOGIC CHO NÚT SAO CHÉP KẾT QUẢ ===
+  function handleCopyResults() {
+    let report = "--- KẾT QUẢ NÉN ẢNH ---\n\n";
+
+    // Thêm thông tin ảnh gốc
+    report += "ẢNH GỐC:\n";
+    report += `- Định dạng: ${originalFileData.type}\n`;
+    report += `- Kích thước: ${originalFileData.width}x${originalFileData.height} px\n`;
+    report += `- Dung lượng: ${formatBytes(originalFileData.size)}\n\n`;
+
+    // Thêm thông tin các phiên bản đã tạo
+    report += "CÁC PHIÊN BẢN ĐÃ TẠO:\n";
+    generatedProfiles.forEach((profile) => {
+      report += `\n* PHIÊN BẢN ${profile.name.toUpperCase()}:\n`;
+      report += `  - Kích thước: ${profile.width}x${profile.height} px\n`;
+      report += `  - Dung lượng: ${formatBytes(profile.blob.size)}\n`;
+      report += `  - Chất lượng tương đối: ~${(profile.quality * 100).toFixed(
+        0
+      )}%\n`;
+    });
+
+    // Sử dụng Clipboard API để sao chép
+    navigator.clipboard
+      .writeText(report)
+      .then(() => {
+        const originalText = copyResultsBtn.textContent;
+        copyResultsBtn.textContent = "✓ Đã sao chép!";
+        setTimeout(() => {
+          copyResultsBtn.textContent = originalText;
+        }, 2000);
+      })
+      .catch((err) => {
+        console.error("Lỗi khi sao chép: ", err);
+        alert("Không thể sao chép kết quả.");
+      });
+  }
 
   // --- Event Listeners ---
   imageInput.addEventListener("change", (event) =>
@@ -247,6 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
     handleImageUpload(e.dataTransfer.files[0]);
   });
   resetBtn.addEventListener("click", resetUI);
+  copyResultsBtn.addEventListener("click", handleCopyResults); // Gán sự kiện cho nút mới
 
   resetUI();
 });
