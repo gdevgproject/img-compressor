@@ -10,16 +10,30 @@ async function analyzeImageVitals(imageBitmap) {
     maxTextureScore = 0,
     totalFlatRegions = 0,
     totalColorEntropy = 0;
-  const regions = 9,
-    sampleSize = 40; // Tăng kích thước mẫu để phân tích chính xác hơn
+
+  // === THAY ĐỔI BẮT ĐẦU TẠI ĐÂY ===
+  const regions = 25; // Tăng từ 9 lên 25 vùng để phân tích chi tiết hơn
+  const regionsPerRow = Math.sqrt(regions); // Sẽ là 5
+  const regionWidth = Math.floor(imageBitmap.width / regionsPerRow);
+  const regionHeight = Math.floor(imageBitmap.height / regionsPerRow);
+  // === KẾT THÚC THAY ĐỔI ===
+
+  const sampleSize = 40; // Giữ nguyên kích thước mẫu để phân tích chính xác hơn
 
   for (let i = 0; i < regions; i++) {
-    const regionX = Math.floor(i % 3) * Math.floor(imageBitmap.width / 3);
-    const regionY = Math.floor(i / 3) * Math.floor(imageBitmap.height / 3);
+    // === THAY ĐỔI BẮT ĐẦU TẠI ĐÂY ===
+    // Tính toán vị trí X, Y của vùng một cách linh hoạt
+    const regionX = Math.floor(i % regionsPerRow) * regionWidth;
+    const regionY = Math.floor(i / regionsPerRow) * regionHeight;
+    // === KẾT THÚC THAY ĐỔI ===
+
+    // Đảm bảo không lấy mẫu ngoài biên ảnh
+    const sampleX = Math.min(regionX, imageBitmap.width - sampleSize);
+    const sampleY = Math.min(regionY, imageBitmap.height - sampleSize);
 
     const imageData = mainCtx.getImageData(
-      regionX,
-      regionY,
+      sampleX,
+      sampleY,
       sampleSize,
       sampleSize
     );
@@ -139,7 +153,7 @@ self.onmessage = async function (event) {
     self.postMessage({
       status: "progress",
       percent: 25,
-      message: "Phân tích nhận thức...",
+      message: "Phân tích nhận thức (25 vùng)...", // Cập nhật thông báo
     });
     const vitals = await analyzeImageVitals(imageBitmap);
 
@@ -176,7 +190,7 @@ self.onmessage = async function (event) {
       predictedCategory = "GRAPHIC";
 
     function logAnalysis() {
-      console.group("---[ PHÂN TÍCH ẢNH V19.0 ]---");
+      console.group("---[ PHÂN TÍCH ẢNH V19.0 (25 Vùng) ]---");
       console.log("Dữ liệu thô:", {
         flatnessRatio: vitals.flatnessRatio.toFixed(2),
         structuralComplexity: vitals.structuralComplexity.toFixed(3),
