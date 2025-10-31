@@ -1,6 +1,6 @@
-// compress.worker.js (PHIÊN BẢN V16.0 FINAL - Hệ thống 2 Cấu hình Tinh gọn)
+// compress.worker.js (PHIÊN BẢN V18.0 FINAL - Hệ thống 3 Loại Tinh gọn)
 
-// --- BỘ NÃO PHÂN TÍCH (Không thay đổi thuật toán, chỉ dùng kết quả) ---
+// --- BỘ NÃO PHÂN TÍCH (Không thay đổi thuật toán) ---
 function sobelOperator(x, y, width, data) {
   const at = (x, y) => (y * width + x) * 4;
   const p = [-1, 0, 1, -2, 0, 2, -1, 0, 1].map((_, i) => {
@@ -57,7 +57,7 @@ async function analyzeImageVitals(imageBitmap) {
       stdDev += Math.pow((data[i] + data[i + 1] + data[i + 2]) / 3 - mean, 2);
     }
     stdDev = Math.sqrt(stdDev / (sampleSize * sampleSize));
-    if (stdDev < 10) totalFlatRegions++;
+    if (stdDev < 12) totalFlatRegions++;
     const currentEdgeDensity = totalEdgeMagnitude / (sampleSize * sampleSize);
     if (currentEdgeDensity > maxEdgeDensity)
       maxEdgeDensity = currentEdgeDensity;
@@ -72,7 +72,6 @@ async function analyzeImageVitals(imageBitmap) {
     isGrayscale: isMostlyGrayscale,
     edgeDensity: maxEdgeDensity,
     flatnessRatio: flatnessRatio,
-    colorSparsity: maxEdgeDensity / (finalUniqueColors + 1),
   };
 }
 
@@ -107,34 +106,14 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // === BẢNG TARGET V16.0 (2 Cấu hình) ===
+    // === BẢNG TARGET V18.0 (3 Loại) ===
     const profiles = {
       m: {
         name: "m",
         maxDimension: 864,
-        targets: {
-          ICON: 4,
-          UI: 14,
-          ILLUSTRATION: 10,
-          ART: 20, // done
-          PHOTO: 22,
-          PHOTO_COMPLEX: 25,
-          TEXTURE: 27,
-        },
+        targets: { ICON: 5, UI: 18, ART: 29 },
       },
-      s: {
-        name: "s",
-        maxDimension: 420,
-        targets: {
-          ICON: 1.5,
-          UI: 6,
-          ILLUSTRATION: 4,
-          ART: 12, // done
-          PHOTO: 10,
-          PHOTO_COMPLEX: 11,
-          TEXTURE: 12,
-        },
-      },
+      s: { name: "s", maxDimension: 420, targets: { ICON: 2, UI: 8, ART: 12 } },
     };
 
     // BƯỚC 1: ĐỌC VÀ PHÂN TÍCH ẢNH GỐC
@@ -151,35 +130,56 @@ self.onmessage = async function (event) {
     });
     const vitals = await analyzeImageVitals(imageBitmap);
 
-    let category = "TEXTURE";
-    if (vitals.isGrayscale && vitals.flatnessRatio > 0.8) category = "ICON";
-    else if (vitals.flatnessRatio > 0.7 && vitals.uniqueColors < 128)
+    // === LOGIC PHÂN LOẠI V18.0 (Cây quyết định 3 cấp) ===
+    let category = "ART"; // Mặc định là loại đắt nhất
+    if (
+      (vitals.isGrayscale && vitals.flatnessRatio > 0.6) ||
+      (vitals.flatnessRatio > 0.8 && vitals.uniqueColors < 64)
+    ) {
       category = "ICON";
-    else if (vitals.flatnessRatio > 0.4 && vitals.edgeDensity < 30)
+    } else if (vitals.flatnessRatio > 0.5 && vitals.edgeDensity < 35) {
       category = "UI";
-    else if (vitals.colorSparsity < 0.025 && vitals.edgeDensity < 45)
-      category = "ILLUSTRATION";
-    else if (vitals.edgeDensity < 55) category = "ART";
-    else if (vitals.edgeDensity < 70) category = "PHOTO";
-    else if (vitals.edgeDensity < 85) category = "PHOTO_COMPLEX";
+    }
 
     function logAnalysis() {
-      console.group("---[ PHÂN TÍCH ẢNH V16.0 ]---");
+      console.group("---[ PHÂN TÍCH ẢNH V18.0 ]---");
       console.log("Dữ liệu thô:", {
         ...vitals,
         edgeDensity: vitals.edgeDensity.toFixed(2),
         flatnessRatio: vitals.flatnessRatio.toFixed(2),
-        colorSparsity: vitals.colorSparsity.toFixed(4),
       });
       console.log(
-        `=> Kết luận: Phân loại là %c${category}`,
+        "%cGiải thích các chỉ số:",
+        "color: #007bff; font-weight: bold;"
+      );
+      console.log(
+        `- Tỷ lệ vùng phẳng (flatnessRatio): ${vitals.flatnessRatio.toFixed(2)}`
+      );
+      console.log(
+        `- Mật độ biên cạnh (edgeDensity): ${vitals.edgeDensity.toFixed(2)}`
+      );
+      console.log("%cQuy tắc áp dụng:", "color: #fd7e14; font-weight: bold;");
+      if (category === "ICON")
+        console.log("-> Ảnh siêu phẳng/đơn giản -> Xếp vào ICON.");
+      else if (category === "UI")
+        console.log(
+          "-> Ảnh tương đối phẳng, có cấu trúc rõ ràng -> Xếp vào UI."
+        );
+      else if (category === "ART")
+        console.log("-> Không đủ đơn giản cho UI -> Xếp vào ART (mặc định).");
+      console.log(
+        "%c=> KẾT LUẬN PHÂN LOẠI:",
+        "color: #28a745; font-weight: bold;"
+      );
+      console.log(
+        `Thuật toán xếp ảnh này vào loại: %c${category}`,
         "background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;"
       );
       console.groupEnd();
     }
     logAnalysis();
 
-    // BƯỚC 2: XÁC ĐỊNH CÁC PHIÊN BẢN CẦN TẠO (Logic thác nước 2 cấp)
+    // BƯỚC 2 & 3: XÁC ĐỊNH PHIÊN BẢN VÀ RESIZE (Không đổi)
     const originalWidth = imageBitmap.width;
     let profilesToGenerate = [];
     if (originalWidth > profiles.s.maxDimension) {
@@ -188,14 +188,11 @@ self.onmessage = async function (event) {
       profilesToGenerate = [profiles.s];
     }
     profilesToGenerate.sort((a, b) => b.maxDimension - a.maxDimension);
-
     self.postMessage({
       status: "progress",
       percent: 40,
       message: `Chuẩn bị tạo ${profilesToGenerate.length} phiên bản...`,
     });
-
-    // BƯỚC 3: RESIZE
     const resizedCanvases = {};
     let lastSource = imageBitmap;
     for (const profile of profilesToGenerate) {
@@ -239,16 +236,14 @@ self.onmessage = async function (event) {
         inputType.includes("heic") ||
         inputType.includes("jpg");
 
-      if (
-        (category === "PHOTO" ||
-          category === "PHOTO_COMPLEX" ||
-          category === "TEXTURE") &&
-        isPhotoType
-      ) {
+      // === CẬP NHẬT LOGIC BỘ LỌC ===
+      // Chỉ áp dụng blur cho ảnh loại ART và có nguồn gốc là ảnh chụp
+      if (category === "ART" && isPhotoType) {
         ctx.filter = "blur(0.3px)";
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
+      // Áp dụng tăng cường thị giác cho mọi loại trừ ICON
       if (category !== "ICON") {
         let contrast = 1.03,
           saturate = 1.03;
