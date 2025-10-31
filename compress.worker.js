@@ -1,109 +1,107 @@
-// compress.worker.js
+// compress.worker.js (PHIÊN BẢN CUỐI CÙNG)
 
-/**
- * Hàm nén ảnh "Ultimate"
- * 1. Resize về kích thước chuẩn (maxDimension).
- * 2. Chuyển đổi sang WebP (định dạng tốt nhất).
- * 3. Nén thích ứng: Tự động lặp (iterate) để tìm chất lượng (quality) cao nhất
- * mà vẫn giữ kích thước file dưới targetSizeKB.
- */
 self.onmessage = async function (event) {
-  const { file, maxDimension, targetSizeKB, minQuality } = event.data;
+  const { file, maxDimension, defaultTargetKB, tiers } = event.data;
 
   try {
-    // --- Bước 1: Đọc file (Progress 10%) ---
+    // --- Bước 1-3: Đọc, tính toán, resize (Không thay đổi) ---
     self.postMessage({
       status: "progress",
       percent: 10,
       message: "Đọc dữ liệu ảnh...",
     });
     const imageBitmap = await createImageBitmap(file);
-    const originalWidth = imageBitmap.width;
-    const originalHeight = imageBitmap.height;
-
-    // --- Bước 2: Tính toán Resize (Progress 20%) ---
-    // Chuẩn 1/4 Full HD (1920/2 = 960)
+    let newWidth = imageBitmap.width;
+    let newHeight = imageBitmap.height;
+    if (Math.max(newWidth, newHeight) > maxDimension) {
+      if (newWidth > newHeight) {
+        newHeight = (newHeight * maxDimension) / newWidth;
+        newWidth = maxDimension;
+      } else {
+        newWidth = (newWidth * maxDimension) / newHeight;
+        newHeight = maxDimension;
+      }
+    }
+    newWidth = Math.round(newWidth);
+    newHeight = Math.round(newHeight);
     self.postMessage({
       status: "progress",
       percent: 20,
-      message: "Tính toán Kích thước Chuẩn...",
-    });
-
-    let newWidth = originalWidth;
-    let newHeight = originalHeight;
-
-    if (Math.max(originalWidth, originalHeight) > maxDimension) {
-      if (originalWidth > originalHeight) {
-        newWidth = maxDimension;
-        newHeight = (originalHeight * maxDimension) / originalWidth;
-      } else {
-        newHeight = maxDimension;
-        newWidth = (originalWidth * maxDimension) / originalHeight;
-      }
-    }
-
-    newWidth = Math.round(newWidth);
-    newHeight = Math.round(newHeight);
-
-    // --- Bước 3: Resize (Downsampling) (Progress 40%) ---
-    self.postMessage({
-      status: "progress",
-      percent: 40,
       message: `Resize về ${newWidth}x${newHeight}px...`,
     });
-
     const canvas = new OffscreenCanvas(newWidth, newHeight);
     const ctx = canvas.getContext("2d");
     ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
 
-    // --- Bước 4: Nén Thích ứng (Adaptive Compression) (Progress 50% - 90%) ---
-    // Đây là quy trình "nén nhiều bước"
+    // --- THUẬT TOÁN PHÂN LOẠI ĐA TẦNG ---
 
-    const targetSizeBytes = targetSizeKB * 1024;
-    let currentQuality = 0.95; // Bắt đầu ở chất lượng cao nhất
+    // 1. Nén thăm dò để phân loại
+    self.postMessage({
+      status: "progress",
+      percent: 45,
+      message: "Phân tích độ phức tạp ảnh...",
+    });
+    const complexityTestBlob = await canvas.convertToBlob({
+      type: "image/webp",
+      quality: 0.9,
+    });
+
+    let finalTargetKB = defaultTargetKB;
+    let strategyName = "Ảnh Chi tiết Cao";
+
+    // 2. Lặp qua các tầng để tìm ra tầng phù hợp
+    for (const tier of tiers) {
+      if (complexityTestBlob.size <= tier.thresholdKB * 1024) {
+        finalTargetKB = tier.targetKB;
+        strategyName = tier.name;
+        break;
+      }
+    }
+
+    const finalTargetSizeBytes = finalTargetKB * 1024;
+    const strategyMessage = `Phân loại: ${strategyName}. Mục tiêu < ${finalTargetKB}KB...`;
+    self.postMessage({
+      status: "progress",
+      percent: 50,
+      message: strategyMessage,
+    });
+
+    // 3. Nén thích ứng dựa trên mục tiêu cuối cùng
     let bestBlob = null;
     let bestQuality = 0;
-
-    // Chúng ta sẽ thử nén lặp đi lặp lại, giảm dần chất lượng
-    // để tìm mức cao nhất mà VẪN dưới 100KB.
+    // === THÊM CÁC BƯỚC CHẤT LƯỢNG THẤP ĐỂ ĐẠT MỤC TIÊU SIÊU NHỎ ===
     const qualitySteps = [
-      0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4,
+      0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35,
+      0.3, 0.25, 0.2, 0.15, 0.1, 0.05,
     ];
 
     for (let i = 0; i < qualitySteps.length; i++) {
-      currentQuality = qualitySteps[i];
-
-      // Cập nhật progress bar
-      let progressPercent = 40 + i * 5; // 40 -> 90%
+      const currentQuality = qualitySteps[i];
+      const progressPercent = 50 + i * (50 / qualitySteps.length);
       self.postMessage({
         status: "progress",
-        percent: progressPercent,
+        percent: Math.min(99, Math.round(progressPercent)),
         message: `Thử nén ở Chất lượng ${(currentQuality * 100).toFixed(
           0
         )}%...`,
       });
 
-      // Nén ra định dạng WebP (tốt nhất)
       const blob = await canvas.convertToBlob({
         type: "image/webp",
         quality: currentQuality,
       });
 
-      if (blob.size <= targetSizeBytes) {
-        // TUYỆT VỜI! Đã đạt < 100KB
-        // Đây là chất lượng cao nhất có thể đạt được. Dừng lại.
+      if (blob.size <= finalTargetSizeBytes) {
         bestBlob = blob;
         bestQuality = currentQuality;
-        break; // Thoát vòng lặp
+        break;
       }
 
-      // Nếu vẫn > 100KB, gán bestBlob là blob cuối cùng
-      // và tiếp tục vòng lặp để thử chất lượng thấp hơn
       bestBlob = blob;
       bestQuality = currentQuality;
     }
 
-    // --- Bước 5: Hoàn tất (Progress 100%) ---
+    // --- Hoàn tất ---
     self.postMessage({
       status: "progress",
       percent: 100,

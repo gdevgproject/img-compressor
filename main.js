@@ -104,11 +104,20 @@ document.addEventListener("DOMContentLoaded", () => {
         size: file.size,
       });
 
+      // --- CẤU HÌNH PHÂN LOẠI ĐA TẦNG TỐI ƯU ---
+      const compressionTiers = [
+        { thresholdKB: 8, targetKB: 3, name: "Tối giản" },
+        { thresholdKB: 35, targetKB: 20, name: "Đồ họa phẳng" },
+        { thresholdKB: 80, targetKB: 45, name: "Ảnh Web chuẩn" },
+      ];
+
       // Gửi tác vụ nén đến Worker
       compressWorker.postMessage({
         file: file,
         maxDimension: 960,
-        targetSizeKB: 40,
+        // Mục tiêu mặc định cho ảnh chi tiết cao nhất
+        defaultTargetKB: 70,
+        tiers: compressionTiers,
       });
     };
   }
@@ -140,8 +149,8 @@ document.addEventListener("DOMContentLoaded", () => {
         let finalMessage = `Nén thành công! Dung lượng giảm ${ratio.toFixed(
           1
         )}%.`;
-        if (compressedSize > 100 * 1024) {
-          finalMessage = `Đã nén hết mức có thể nhưng vẫn chưa đạt mục tiêu < 100KB.`;
+        if (compressedSize > (data.finalTargetKB || 70) * 1024) {
+          finalMessage = `Đã nén hết mức có thể nhưng vẫn chưa đạt mục tiêu.`;
         }
         updateProgress(100, "Hoàn tất!");
         infoMessage.textContent = finalMessage;
@@ -157,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // --- Event Listeners ---
-  uploadArea.addEventListener("click", () => imageInput.click());
+  // Dòng 'uploadArea.addEventListener("click", ...)' đã được XÓA để sửa lỗi
   imageInput.addEventListener("change", (event) =>
     handleImageUpload(event.target.files[0])
   );
