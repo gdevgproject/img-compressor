@@ -1,6 +1,6 @@
-// compress.worker.js (PHIÊN BẢN V7.0 - Tối ưu thuật toán nén bằng Binary Search)
+// compress.worker.js (PHIÊN BẢN V8.0 FINAL - Tối ưu Toàn diện)
 
-// --- CÁC HÀM PHÂN TÍCH CỦA V4 (Không thay đổi) ---
+// --- CÁC HÀM TIỆN ÍCH (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
   const SAMPLE_SIZE = 100;
   const canvas = new OffscreenCanvas(SAMPLE_SIZE, SAMPLE_SIZE);
@@ -29,107 +29,36 @@ async function analyzeImageVitals(imageBitmap) {
   return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
-// --- HÀM NÉN CỐT LÕI (ĐÃ TỐI ƯU HIỆU NĂNG) ---
-async function compressProfile(
-  imageBitmap,
-  profile,
-  vitals,
-  inputType,
-  onProgress
-) {
-  // 1. Resize ảnh (Logic không đổi)
-  let newWidth = imageBitmap.width,
-    newHeight = imageBitmap.height;
-  if (Math.max(newWidth, newHeight) > profile.maxDimension) {
-    if (newWidth > newHeight) {
-      newHeight = Math.round((newHeight * profile.maxDimension) / newWidth);
-      newWidth = profile.maxDimension;
-    } else {
-      newWidth = Math.round((newWidth * profile.maxDimension) / newHeight);
-      newHeight = profile.maxDimension;
-    }
-  }
-  const canvas = new OffscreenCanvas(newWidth, newHeight);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
-
-  // 2. Phân loại ảnh để xác định dung lượng mục tiêu (Logic không đổi)
-  const testBlob = await canvas.convertToBlob({
-    type: "image/webp",
-    quality: 0.85,
-  });
-  const testSizeKB = testBlob.size / 1024;
-  let category = "complex";
-  if (vitals.isGrayscale || vitals.detailScore < 1.0) {
-    category = "minimal";
-  } else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0) {
-    category = "vector";
-  } else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5) {
-    category = "graphic";
-  } else if (testSizeKB < 50 || vitals.detailScore < 5.0) {
-    category = "art";
-  } else if (testSizeKB < 90 && vitals.detailScore < 8.0) {
-    category = "standard";
-  }
-  const finalTargetBytes = profile.targets[category] * 1024;
-
-  // 3. Áp dụng bộ lọc cho ảnh chụp (Logic không đổi)
-  const isPhotoType =
-    inputType.includes("jpeg") ||
-    inputType.includes("heic") ||
-    inputType.includes("jpg");
-  if ((category === "standard" || category === "complex") && isPhotoType) {
-    onProgress(`Làm mịn nhiễu cho ảnh chụp...`);
-    ctx.filter = "blur(0.4px)";
-    ctx.drawImage(canvas, 0, 0);
-    ctx.drawImage(canvas, 0, 0);
-    ctx.filter = "none";
-  }
-
-  // === THAY ĐỔI CỐT LÕI: TỐI ƯU THUẬT TOÁN NÉN ===
-  // Thay thế vòng lặp tuyến tính bằng thuật toán tìm kiếm nhị phân (Binary Search).
-  // Thuật toán này sẽ tìm ra chất lượng tối ưu chỉ trong vài bước, nhanh hơn đáng kể.
+// --- HÀM NÉN CỐT LÕI (Không thay đổi logic, chỉ là một phần của quy trình) ---
+async function compressAndEncode(canvas, targetSizeInBytes) {
   let lowerBound = 0;
   let upperBound = 1;
   let bestBlob = null;
   let bestQuality = 0;
-  const iterations = 7; // 7 lần lặp là đủ để đạt độ chính xác cao
+  const iterations = 7;
 
   for (let i = 0; i < iterations; i++) {
     const quality = (lowerBound + upperBound) / 2;
     const blob = await canvas.convertToBlob({ type: "image/webp", quality });
 
-    if (blob.size > finalTargetBytes) {
-      // File quá lớn -> giảm chất lượng tối đa -> di chuyển cận trên
+    if (blob.size > targetSizeInBytes) {
       upperBound = quality;
     } else {
-      // File đạt yêu cầu -> lưu lại kết quả và thử chất lượng cao hơn -> di chuyển cận dưới
       bestBlob = blob;
       bestQuality = quality;
       lowerBound = quality;
     }
   }
 
-  // Nếu ngay cả chất lượng 0 vẫn lớn hơn mục tiêu, trả về blob cuối cùng đã tạo
   if (!bestBlob) {
     bestBlob = await canvas.convertToBlob({ type: "image/webp", quality: 0 });
     bestQuality = 0;
   }
-  // =================================================
 
-  onProgress(
-    `Hoàn tất cấu hình ${profile.name} (${(bestBlob.size / 1024).toFixed(0)}KB)`
-  );
-  return {
-    name: profile.name,
-    blob: bestBlob,
-    quality: bestQuality,
-    width: newWidth,
-    height: newHeight,
-  };
+  return { blob: bestBlob, quality: bestQuality };
 }
 
-// --- BỘ ĐIỀU KHIỂN CHÍNH (Không thay đổi) ---
+// --- BỘ ĐIỀU KHIỂN CHÍNH (ĐÃ TÁI CẤU TRÚC HOÀN TOÀN ĐỂ TỐI ƯU) ---
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
@@ -172,20 +101,23 @@ self.onmessage = async function (event) {
       },
     };
 
-    const inputType = file.type.toLowerCase();
+    // BƯỚC 1: ĐỌC VÀ PHÂN TÍCH ẢNH GỐC (Chỉ một lần)
     self.postMessage({
       status: "progress",
       percent: 10,
       message: "Đọc dữ liệu ảnh...",
     });
     const imageBitmap = await createImageBitmap(file);
-    const originalWidth = imageBitmap.width;
+
     self.postMessage({
       status: "progress",
       percent: 25,
       message: "Phân tích cấu trúc ảnh...",
     });
     const vitals = await analyzeImageVitals(imageBitmap);
+
+    // BƯỚC 2: XÁC ĐỊNH CÁC PHIÊN BẢN CẦN TẠO VÀ SẮP XẾP
+    const originalWidth = imageBitmap.width;
     let profilesToGenerate = [];
     if (originalWidth > profiles.Laptop.maxDimension) {
       profilesToGenerate = [profiles.TV, profiles.Laptop, profiles.Mobile];
@@ -194,29 +126,109 @@ self.onmessage = async function (event) {
     } else {
       profilesToGenerate = [profiles.Mobile];
     }
+    // Sắp xếp từ lớn đến nhỏ để tái sử dụng pixel data hiệu quả
+    profilesToGenerate.sort((a, b) => b.maxDimension - a.maxDimension);
+
     self.postMessage({
       status: "progress",
       percent: 40,
-      message: `Sẽ tạo ${profilesToGenerate.length} phiên bản...`,
+      message: `Chuẩn bị tạo ${profilesToGenerate.length} phiên bản...`,
     });
 
+    // BƯỚC 3: TẠO CÁC CANVAS ĐÃ RESIZE (Tái sử dụng và song song hóa)
+    const resizedCanvases = {};
+    let lastSource = imageBitmap;
+    let lastDim = Math.max(imageBitmap.width, imageBitmap.height);
+
+    for (const profile of profilesToGenerate) {
+      const sourceWidth = lastSource.width;
+      const sourceHeight = lastSource.height;
+
+      let newWidth = sourceWidth,
+        newHeight = sourceHeight;
+      if (lastDim > profile.maxDimension) {
+        if (sourceWidth > sourceHeight) {
+          newHeight = Math.round(
+            (sourceHeight * profile.maxDimension) / sourceWidth
+          );
+          newWidth = profile.maxDimension;
+        } else {
+          newWidth = Math.round(
+            (sourceWidth * profile.maxDimension) / sourceHeight
+          );
+          newHeight = profile.maxDimension;
+        }
+      }
+
+      const canvas = new OffscreenCanvas(newWidth, newHeight);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(lastSource, 0, 0, newWidth, newHeight);
+
+      resizedCanvases[profile.name] = canvas;
+      lastSource = canvas; // Nguồn cho lần lặp tiếp theo là canvas vừa tạo
+      lastDim = profile.maxDimension;
+    }
+
+    // BƯỚC 4: NÉN SONG SONG TẤT CẢ CÁC PHIÊN BẢN
     self.postMessage({
       status: "progress",
-      percent: 45,
-      message: `Bắt đầu nén song song ${profilesToGenerate.length} phiên bản...`,
+      percent: 60,
+      message: `Đang nén song song ${profilesToGenerate.length} phiên bản...`,
     });
 
-    const compressionPromises = profilesToGenerate.map((profile) =>
-      compressProfile(imageBitmap, profile, vitals, inputType, (msg) => {
-        // Hàm onProgress giờ không cần cập nhật thanh tiến trình nữa
-        // vì các tác vụ chạy song song. Có thể dùng để log chi tiết.
-        console.log(`[Worker] Progress for ${profile.name}: ${msg}`);
-      })
-    );
+    const compressionPromises = profilesToGenerate.map(async (profile) => {
+      const canvas = resizedCanvases[profile.name];
+      const ctx = canvas.getContext("2d");
 
-    // Chờ tất cả các promise nén hoàn thành cùng lúc
+      // Phân loại ảnh (Logic của bạn)
+      const testBlob = await canvas.convertToBlob({
+        type: "image/webp",
+        quality: 0.85,
+      });
+      const testSizeKB = testBlob.size / 1024;
+      let category = "complex";
+      if (vitals.isGrayscale || vitals.detailScore < 1.0) category = "minimal";
+      else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0)
+        category = "vector";
+      else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5)
+        category = "graphic";
+      else if (testSizeKB < 50 || vitals.detailScore < 5.0) category = "art";
+      else if (testSizeKB < 90 && vitals.detailScore < 8.0)
+        category = "standard";
+      const finalTargetBytes = profile.targets[category] * 1024;
+
+      // Áp dụng bộ lọc (Logic của bạn)
+      const inputType = file.type.toLowerCase();
+      const isPhotoType =
+        inputType.includes("jpeg") ||
+        inputType.includes("heic") ||
+        inputType.includes("jpg");
+      if ((category === "standard" || category === "complex") && isPhotoType) {
+        ctx.filter = "blur(0.4px)";
+        ctx.drawImage(canvas, 0, 0);
+        ctx.drawImage(canvas, 0, 0);
+        ctx.filter = "none";
+      }
+
+      // Nén
+      const { blob, quality } = await compressAndEncode(
+        canvas,
+        finalTargetBytes
+      );
+
+      return {
+        name: profile.name,
+        blob: blob,
+        quality: quality,
+        width: canvas.width,
+        height: canvas.height,
+      };
+    });
+
+    // Chờ tất cả hoàn thành
     const results = await Promise.all(compressionPromises);
 
+    // BƯỚC 5: GỬI KẾT QUẢ CUỐI CÙNG
     const previewResult =
       results.find((r) => r.name === "Laptop") || results[0];
     self.postMessage({
