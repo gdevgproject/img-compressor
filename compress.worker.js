@@ -116,7 +116,7 @@ self.onmessage = async function (event) {
           ICON: 4,
           UI: 14,
           ILLUSTRATION: 10,
-          ART: 20,
+          ART: 20, // done
           PHOTO: 22,
           PHOTO_COMPLEX: 25,
           TEXTURE: 27,
@@ -129,7 +129,7 @@ self.onmessage = async function (event) {
           ICON: 1.5,
           UI: 6,
           ILLUSTRATION: 4,
-          ART: 12,
+          ART: 12, // done
           PHOTO: 10,
           PHOTO_COMPLEX: 11,
           TEXTURE: 12,
