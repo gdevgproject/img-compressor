@@ -111,12 +111,12 @@ self.onmessage = async function (event) {
     const profiles = {
       m: {
         name: "m",
-        maxDimension: 720,
+        maxDimension: 864,
         targets: {
           ICON: 4,
           UI: 14,
           ILLUSTRATION: 10,
-          ART: 18,
+          ART: 20,
           PHOTO: 22,
           PHOTO_COMPLEX: 25,
           TEXTURE: 27,
