@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V5.3 - Nén Thích ứng theo Cấu trúc)
+// compress.worker.js (PHIÊN BẢN V6 - Nén Lai Theo Loại Đầu Vào)
 
 // --- CÁC HÀM PHÂN TÍCH CỦA V4 (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
@@ -29,8 +29,14 @@ async function analyzeImageVitals(imageBitmap) {
   return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
-// --- HÀM NÉN CỐT LÕI (Nâng cấp với xử lý trước) ---
-async function compressProfile(imageBitmap, profile, vitals, onProgress) {
+// --- HÀM NÉN CỐT LÕI (Nâng cấp với logic lai) ---
+async function compressProfile(
+  imageBitmap,
+  profile,
+  vitals,
+  inputType,
+  onProgress
+) {
   // 1. Resize theo cấu hình
   let newWidth = imageBitmap.width,
     newHeight = imageBitmap.height;
@@ -47,15 +53,13 @@ async function compressProfile(imageBitmap, profile, vitals, onProgress) {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
 
-  // 2. Phân loại, chọn Target KB và ÁP DỤNG KỸ THUẬT MỚI
+  // 2. Phân loại và chọn Target KB
   const testBlob = await canvas.convertToBlob({
     type: "image/webp",
     quality: 0.85,
   });
   const testSizeKB = testBlob.size / 1024;
-  let finalTargetKB;
   let category = "complex"; // Mặc định
-
   if (vitals.isGrayscale || vitals.detailScore < 1.0) {
     category = "minimal";
   } else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0) {
@@ -67,17 +71,19 @@ async function compressProfile(imageBitmap, profile, vitals, onProgress) {
   } else if (testSizeKB < 90 && vitals.detailScore < 8.0) {
     category = "standard";
   }
+  const finalTargetKB = profile.targets[category];
 
-  finalTargetKB = profile.targets[category];
-
-  // === KỸ THUẬT MỚI: Xử lý trước cho ảnh chụp ===
-  if (category === "standard" || category === "complex") {
-    onProgress(`Làm mịn vi nhiễu cho ảnh chụp...`);
-    // Áp dụng bộ lọc làm mờ cực nhẹ để loại bỏ nhiễu
-    ctx.filter = "blur(0.5px)";
-    // Vẽ lại ảnh lên chính nó để áp dụng bộ lọc
-    ctx.drawImage(canvas, 0, 0);
-    // Tắt bộ lọc để không ảnh hưởng các bước sau
+  // === LOGIC LAI V6: Xử lý trước CHỈ KHI LÀ ẢNH CHỤP PHỨC TẠP ===
+  const isPhotoType =
+    inputType.includes("jpeg") ||
+    inputType.includes("heic") ||
+    inputType.includes("jpg");
+  if ((category === "standard" || category === "complex") && isPhotoType) {
+    onProgress(`Làm mịn nhiễu cho ảnh chụp...`);
+    // Áp dụng bộ lọc làm mờ 2-pass hiệu quả hơn
+    ctx.filter = "blur(0.4px)";
+    ctx.drawImage(canvas, 0, 0); // Pass 1
+    ctx.drawImage(canvas, 0, 0); // Pass 2
     ctx.filter = "none";
   }
 
@@ -102,7 +108,6 @@ async function compressProfile(imageBitmap, profile, vitals, onProgress) {
   onProgress(
     `Hoàn tất cấu hình ${profile.name} (${(bestBlob.size / 1024).toFixed(0)}KB)`
   );
-
   return {
     name: profile.name,
     blob: bestBlob,
@@ -116,7 +121,7 @@ async function compressProfile(imageBitmap, profile, vitals, onProgress) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // Cập nhật các mục tiêu nén V5.3
+    // Giữ nguyên các mục tiêu nén quyết liệt
     const profiles = {
       TV: {
         name: "TV",
@@ -139,7 +144,7 @@ self.onmessage = async function (event) {
           graphic: 12,
           art: 20,
           standard: 30,
-          complex: 35,
+          complex: 40,
         },
       },
       Mobile: {
@@ -150,11 +155,14 @@ self.onmessage = async function (event) {
           vector: 2,
           graphic: 5,
           art: 8,
-          standard: 10,
-          complex: 12,
+          standard: 12,
+          complex: 15,
         },
       },
     };
+
+    // === BƯỚC MỚI: Lấy loại file đầu vào ===
+    const inputType = file.type.toLowerCase();
 
     self.postMessage({
       status: "progress",
@@ -191,10 +199,12 @@ self.onmessage = async function (event) {
     let progressChunk = 60 / profilesToGenerate.length;
     for (let i = 0; i < profilesToGenerate.length; i++) {
       const profile = profilesToGenerate[i];
+      // Truyền `inputType` vào hàm nén
       const result = await compressProfile(
         imageBitmap,
         profile,
         vitals,
+        inputType,
         (msg) => {
           self.postMessage({
             status: "progress",
@@ -208,7 +218,6 @@ self.onmessage = async function (event) {
 
     const previewResult =
       results.find((r) => r.name === "Laptop") || results[0];
-
     self.postMessage({
       status: "progress",
       percent: 100,
