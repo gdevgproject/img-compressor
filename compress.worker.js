@@ -1,17 +1,18 @@
-// compress.worker.js (PHIÊN BẢN V3 - PHÂN TÍCH NỘI DUNG)
+// compress.worker.js (PHIÊN BẢN V4 - PHÂN TÍCH CẤU TRÚC)
 
 /**
- * Phân tích các đặc tính nội tại của ảnh từ một bản sao thu nhỏ.
- * @returns {Promise<{uniqueColors: number, isGrayscale: boolean}>}
+ * Phân tích các chỉ số sống còn của ảnh: phổ màu và độ phức tạp cấu trúc.
+ * @returns {Promise<{uniqueColors: number, isGrayscale: boolean, detailScore: number}>}
  */
-async function analyzeImageProperties(imageBitmap) {
-  const SAMPLE_SIZE = 100; // Phân tích trên ảnh mẫu 100x100px cho tốc độ
+async function analyzeImageVitals(imageBitmap) {
+  const SAMPLE_SIZE = 100;
   const canvas = new OffscreenCanvas(SAMPLE_SIZE, SAMPLE_SIZE);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(imageBitmap, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
   const imageData = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
 
   const colors = new Set();
+  let totalDifference = 0;
   let grayscalePixels = 0;
 
   for (let i = 0; i < imageData.length; i += 4) {
@@ -19,27 +20,36 @@ async function analyzeImageProperties(imageBitmap) {
     const g = imageData[i + 1];
     const b = imageData[i + 2];
 
-    // Thêm màu vào Set để đếm màu độc nhất
     colors.add(`${r},${g},${b}`);
 
     // Kiểm tra độ xám
-    const isGray = Math.abs(r - g) < 10 && Math.abs(r - b) < 10;
-    if (isGray) {
+    if (Math.abs(r - g) < 15 && Math.abs(r - b) < 15) {
       grayscalePixels++;
+    }
+
+    // Tính toán Detail Score: so sánh với pixel bên phải
+    if ((i / 4) % SAMPLE_SIZE < SAMPLE_SIZE - 1) {
+      // Bỏ qua cột cuối cùng
+      const r_next = imageData[i + 4];
+      const g_next = imageData[i + 5];
+      const b_next = imageData[i + 6];
+      totalDifference +=
+        Math.abs(r - r_next) + Math.abs(g - g_next) + Math.abs(b - b_next);
     }
   }
 
-  // Nếu hơn 95% pixel là màu xám, coi là ảnh đen trắng
-  const isGrayscale = grayscalePixels / (SAMPLE_SIZE * SAMPLE_SIZE) > 0.95;
+  const isGrayscale = grayscalePixels / (SAMPLE_SIZE * SAMPLE_SIZE) > 0.98;
+  // Chuẩn hóa điểm chi tiết về một thang đo dễ hiểu (ví dụ: 0-100)
+  const detailScore = (totalDifference / (imageData.length * 3)) * 100;
 
-  return { uniqueColors: colors.size, isGrayscale };
+  return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
 self.onmessage = async function (event) {
   const { file, maxDimension, targets } = event.data;
 
   try {
-    // --- Bước 1-3: Đọc, tính toán, resize (Không thay đổi) ---
+    // --- Bước 1-3: Đọc, resize (Không đổi) ---
     self.postMessage({
       status: "progress",
       percent: 10,
@@ -68,39 +78,41 @@ self.onmessage = async function (event) {
     const ctx = canvas.getContext("2d");
     ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
 
-    // --- THUẬT TOÁN PHÂN LOẠI NÂNG CAO ---
+    // --- BỘ NÃO PHÂN LOẠI V4 ---
     self.postMessage({
       status: "progress",
       percent: 30,
-      message: "Phân tích nội dung ảnh...",
+      message: "Phân tích cấu trúc ảnh...",
     });
 
-    // Chạy đồng thời 2 phép phân tích để tiết kiệm thời gian
-    const [properties, complexityTestBlob] = await Promise.all([
-      analyzeImageProperties(imageBitmap),
-      canvas.convertToBlob({ type: "image/webp", quality: 0.9 }),
+    const [vitals, complexityTestBlob] = await Promise.all([
+      analyzeImageVitals(imageBitmap),
+      canvas.convertToBlob({ type: "image/webp", quality: 0.85 }), // Nén thử ở 85%
     ]);
 
     let finalTargetKB;
     let strategyName;
     const testSizeKB = complexityTestBlob.size / 1024;
 
-    // Logic phân loại đa tầng V3
-    if (properties.isGrayscale) {
-      finalTargetKB = targets.grayscale;
-      strategyName = "Ảnh Đen Trắng";
-    } else if (properties.uniqueColors < 512 || testSizeKB < 10) {
+    // Logic phân loại chuyên gia
+    if (vitals.isGrayscale || vitals.detailScore < 1.0) {
       finalTargetKB = targets.minimal;
-      strategyName = "Đồ họa Tối giản";
-    } else if (properties.uniqueColors < 8192 || testSizeKB < 40) {
+      strategyName = "Tối giản / Đen trắng";
+    } else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0) {
+      finalTargetKB = targets.vector;
+      strategyName = "Icon / Vector-like";
+    } else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5) {
       finalTargetKB = targets.graphic;
-      strategyName = "Đồ họa Phẳng";
-    } else if (testSizeKB < 85) {
+      strategyName = "UI / Đồ họa phẳng";
+    } else if (testSizeKB < 50 || vitals.detailScore < 5.0) {
+      finalTargetKB = targets.art;
+      strategyName = "Tranh vẽ / Art";
+    } else if (testSizeKB < 90 && vitals.detailScore < 8.0) {
       finalTargetKB = targets.standard;
       strategyName = "Ảnh Web Chuẩn";
     } else {
       finalTargetKB = targets.complex;
-      strategyName = "Ảnh Siêu Phức tạp";
+      strategyName = "Ảnh Siêu chi tiết";
     }
 
     const finalTargetSizeBytes = finalTargetKB * 1024;
@@ -111,7 +123,7 @@ self.onmessage = async function (event) {
       message: strategyMessage,
     });
 
-    // --- Nén thích ứng (gần như không đổi) ---
+    // --- Vòng lặp nén (Không đổi, nhưng giờ mạnh mẽ hơn) ---
     let bestBlob = null;
     let bestQuality = 0;
     const qualitySteps = [
@@ -120,7 +132,6 @@ self.onmessage = async function (event) {
     ];
 
     for (let i = 0; i < qualitySteps.length; i++) {
-      // ... (vòng lặp for giữ nguyên như cũ)
       const currentQuality = qualitySteps[i];
       const progressPercent = 50 + i * (50 / qualitySteps.length);
       self.postMessage({
@@ -143,7 +154,7 @@ self.onmessage = async function (event) {
       bestQuality = currentQuality;
     }
 
-    // --- Hoàn tất (Không thay đổi) ---
+    // --- Hoàn tất (Không đổi) ---
     self.postMessage({
       status: "progress",
       percent: 100,

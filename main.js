@@ -114,13 +114,14 @@ document.addEventListener("DOMContentLoaded", () => {
       compressWorker.postMessage({
         file: file,
         maxDimension: 960,
-        // Gửi các mục tiêu cho từng loại ảnh đã được phân loại
+        // Cấu hình các mục tiêu nén theo từng tầng chuyên gia
         targets: {
-          grayscale: 15,
-          minimal: 8,
-          graphic: 25,
-          standard: 50,
-          complex: 75, // Đây là defaultTargetKB cũ
+          minimal: 2,
+          vector: 5,
+          graphic: 15,
+          art: 30,
+          standard: 45,
+          complex: 65,
         },
       });
     };
