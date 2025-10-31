@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V5.2 - Target Nén Quyết liệt)
+// compress.worker.js (PHIÊN BẢN V5.3 - Nén Thích ứng theo Cấu trúc)
 
 // --- CÁC HÀM PHÂN TÍCH CỦA V4 (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
@@ -29,7 +29,7 @@ async function analyzeImageVitals(imageBitmap) {
   return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
-// --- HÀM NÉN CỐT LÕI (Không thay đổi) ---
+// --- HÀM NÉN CỐT LÕI (Nâng cấp với xử lý trước) ---
 async function compressProfile(imageBitmap, profile, vitals, onProgress) {
   // 1. Resize theo cấu hình
   let newWidth = imageBitmap.width,
@@ -47,24 +47,39 @@ async function compressProfile(imageBitmap, profile, vitals, onProgress) {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
 
-  // 2. Phân loại và chọn Target KB
+  // 2. Phân loại, chọn Target KB và ÁP DỤNG KỸ THUẬT MỚI
   const testBlob = await canvas.convertToBlob({
     type: "image/webp",
     quality: 0.85,
   });
   const testSizeKB = testBlob.size / 1024;
   let finalTargetKB;
-  if (vitals.isGrayscale || vitals.detailScore < 1.0)
-    finalTargetKB = profile.targets.minimal;
-  else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0)
-    finalTargetKB = profile.targets.vector;
-  else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5)
-    finalTargetKB = profile.targets.graphic;
-  else if (testSizeKB < 50 || vitals.detailScore < 5.0)
-    finalTargetKB = profile.targets.art;
-  else if (testSizeKB < 90 && vitals.detailScore < 8.0)
-    finalTargetKB = profile.targets.standard;
-  else finalTargetKB = profile.targets.complex;
+  let category = "complex"; // Mặc định
+
+  if (vitals.isGrayscale || vitals.detailScore < 1.0) {
+    category = "minimal";
+  } else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0) {
+    category = "vector";
+  } else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5) {
+    category = "graphic";
+  } else if (testSizeKB < 50 || vitals.detailScore < 5.0) {
+    category = "art";
+  } else if (testSizeKB < 90 && vitals.detailScore < 8.0) {
+    category = "standard";
+  }
+
+  finalTargetKB = profile.targets[category];
+
+  // === KỸ THUẬT MỚI: Xử lý trước cho ảnh chụp ===
+  if (category === "standard" || category === "complex") {
+    onProgress(`Làm mịn vi nhiễu cho ảnh chụp...`);
+    // Áp dụng bộ lọc làm mờ cực nhẹ để loại bỏ nhiễu
+    ctx.filter = "blur(0.5px)";
+    // Vẽ lại ảnh lên chính nó để áp dụng bộ lọc
+    ctx.drawImage(canvas, 0, 0);
+    // Tắt bộ lọc để không ảnh hưởng các bước sau
+    ctx.filter = "none";
+  }
 
   // 3. Vòng lặp nén thích ứng
   let bestBlob = null,
@@ -100,9 +115,8 @@ async function compressProfile(imageBitmap, profile, vitals, onProgress) {
 // --- BỘ ĐIỀU KHIỂN CHÍNH ---
 self.onmessage = async function (event) {
   const { file } = event.data;
-
   try {
-    // Các mục tiêu nén quyết liệt theo yêu cầu
+    // Cập nhật các mục tiêu nén V5.3
     const profiles = {
       TV: {
         name: "TV",
@@ -125,7 +139,7 @@ self.onmessage = async function (event) {
           graphic: 12,
           art: 20,
           standard: 30,
-          complex: 40,
+          complex: 35,
         },
       },
       Mobile: {
@@ -136,8 +150,8 @@ self.onmessage = async function (event) {
           vector: 2,
           graphic: 5,
           art: 8,
-          standard: 12,
-          complex: 15,
+          standard: 10,
+          complex: 12,
         },
       },
     };
