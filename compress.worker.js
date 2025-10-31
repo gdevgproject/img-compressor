@@ -124,12 +124,12 @@ self.onmessage = async function (event) {
       },
       s: {
         name: "s",
-        maxDimension: 360,
+        maxDimension: 420,
         targets: {
           ICON: 1.5,
           UI: 6,
           ILLUSTRATION: 4,
-          ART: 8,
+          ART: 12,
           PHOTO: 10,
           PHOTO_COMPLEX: 11,
           TEXTURE: 12,
