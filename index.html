@@ -120,6 +120,12 @@
         border: 1px solid var(--border-color);
         border-radius: var(--border-radius);
         overflow: hidden;
+
+        /* === FIX: CHỐNG BÔI ĐEN KHI KÉO THẢ === */
+        -webkit-user-select: none; /* Safari */
+        -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* IE/Edge */
+        user-select: none; /* Standard */
       }
 
       .comparison-image {

@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
       compressWorker.postMessage({
         file: file,
         maxDimension: 960,
-        targetSizeKB: 100,
+        targetSizeKB: 40,
       });
     };
   }
