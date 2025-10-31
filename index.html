@@ -3,12 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="./test-image/studio portrait photography 8k.jpg"
-    />
     <title>Ultimate Image Compressor</title>
     <style>
       :root {
@@ -21,7 +15,6 @@
         --text-color: #212529;
         --border-radius: 12px;
       }
-
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           Helvetica, Arial, sans-serif;
@@ -34,7 +27,6 @@
         align-items: flex-start;
         min-height: 100vh;
       }
-
       .container {
         width: 100%;
         max-width: 900px;
@@ -44,7 +36,6 @@
         padding: 2.5rem;
         box-sizing: border-box;
       }
-
       header {
         text-align: center;
         margin-bottom: 2rem;
@@ -175,8 +166,6 @@
       #resetBtn:hover {
         background-color: #5a6268;
       }
-
-      /* === CSS CHO NÚT SAO CHÉP MỚI === */
       #copyResultsBtn {
         background-color: #17a2b8;
         color: white;
@@ -184,8 +173,6 @@
       #copyResultsBtn:hover {
         background-color: #138496;
       }
-
-      /* === GIAO DIỆN HIỂN THỊ ĐA CẤU HÌNH === */
       #generated-versions-section {
         margin-top: 2rem;
       }
@@ -197,8 +184,8 @@
       }
       .generated-versions-list {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
       }
       .version-card {
         background-color: #f8f9fa;
@@ -227,8 +214,6 @@
       .version-card .download-version-btn:hover {
         background-color: #218838;
       }
-
-      /* === KHU VỰC PREVIEW NÂNG CAO (Không đổi) === */
       #preview-section {
         margin-top: 2.5rem;
         padding-top: 1.5rem;
@@ -352,14 +337,6 @@
         object-fit: contain;
         border-radius: 28px;
       }
-      #preview-area.desktop-bg {
-        background-color: #212529;
-      }
-      #preview-frame.device-desktop #previewImage {
-        max-width: 960px;
-        max-height: 540px;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-      }
       .device-tv-modal {
         opacity: 0;
         visibility: hidden;
@@ -415,30 +392,6 @@
         width: 100%;
         height: 100%;
         object-fit: contain;
-        image-rendering: -moz-crisp-edges;
-        image-rendering: -webkit-optimize-contrast;
-        image-rendering: pixelated;
-      }
-      .device-tv-modal .preview-info {
-        position: absolute;
-        bottom: 2%;
-        left: 50%;
-        transform: translateX(-50%);
-        color: white;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 10px 20px;
-        border-radius: 10px;
-      }
-      .close-tv-preview {
-        position: absolute;
-        top: 2rem;
-        right: 2rem;
-        font-size: 2rem;
-        color: white;
-        cursor: pointer;
-        background: none;
-        border: none;
-        z-index: 1001;
       }
     </style>
   </head>
@@ -448,7 +401,6 @@
         <h2>🚀 Ultimate Image Compressor</h2>
         <p class="subtitle">Nén Đa cấu hình & Xem trước Thông minh</p>
       </header>
-
       <div class="warning" id="warningBox" style="display: none"></div>
       <label for="imageInput" id="upload-area">
         <p>Kéo và thả ảnh vào đây, hoặc nhấn để chọn file</p>
@@ -465,32 +417,28 @@
         <div class="progress-bar" id="progressBar">Sẵn sàng</div>
       </div>
       <div id="infoMessage"></div>
-
       <div id="results-area">
         <div class="main-actions">
-          <!-- NÚT MỚI ĐƯỢC THÊM VÀO ĐÂY -->
           <button id="copyResultsBtn" class="btn">📋 Sao chép Kết quả</button>
           <button id="resetBtn" class="btn">Chọn ảnh khác</button>
         </div>
-
         <div class="info-box">
+          <
           <h3>Ảnh Gốc</h3>
           <ul id="originalInfo"></ul>
         </div>
-
         <div id="generated-versions-section">
           <h3>Các phiên bản đã tạo</h3>
           <div class="generated-versions-list" id="generatedVersionsList"></div>
         </div>
-
         <div id="preview-section">
           <h3>Xem trước trên các thiết bị</h3>
+          <!-- === CẬP NHẬT: 4 nút preview mới === -->
           <div class="preview-controls">
-            <button class="preview-btn" data-device="web">
-              🌐 Web / Laptop
-            </button>
-            <button class="preview-btn" data-device="mobile">📱 Mobile</button>
-            <button class="preview-btn" data-device="tv">📺 TV Lớp học</button>
+            <button class="preview-btn" data-device="l">📺 Large (l)</button>
+            <button class="preview-btn" data-device="m">💻 Medium (m)</button>
+            <button class="preview-btn" data-device="s">📱 Small (s)</button>
+            <button class="preview-btn" data-device="t">🖼️ Tiny (t)</button>
           </div>
           <div id="preview-area">
             <div id="preview-frame">
