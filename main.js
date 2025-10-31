@@ -1,41 +1,88 @@
 // main.js
 document.addEventListener("DOMContentLoaded", () => {
-  // Kiểm tra xem có đang chạy trên server không
+  // Kiểm tra server
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
     warningBox.style.display = "block";
     warningBox.textContent =
-      "LỖI: Trang này phải được chạy trên một Server (ví dụ: VS Code Live Server) để Web Worker hoạt động. Vui lòng không mở file HTML trực tiếp.";
+      "LỖI: Trang này phải được chạy trên một Server (ví dụ: VS Code Live Server) để Web Worker hoạt động.";
   }
 
-  const input = document.getElementById("imageInput");
+  const imageInput = document.getElementById("imageInput");
+  const uploadArea = document.getElementById("upload-area");
   const progressBar = document.getElementById("progressBar");
   const infoMessage = document.getElementById("infoMessage");
+  const resultsArea = document.getElementById("results-area");
   const originalInfo = document.getElementById("originalInfo");
   const compressedInfo = document.getElementById("compressedInfo");
   const originalImage = document.getElementById("originalImage");
   const compressedImage = document.getElementById("compressedImage");
   const downloadBtn = document.getElementById("downloadBtn");
+  const resetBtn = document.getElementById("resetBtn");
 
-  // Khởi tạo Worker
   const compressWorker = new Worker("compress.worker.js");
+
+  function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  }
 
   function updateProgress(percent, text) {
     progressBar.style.width = `${percent}%`;
-    progressBar.textContent = `${percent}%`;
+    progressBar.textContent = text;
     infoMessage.textContent = text;
-    progressBar.style.backgroundColor = percent === 100 ? "#28a745" : "#007bff";
-    downloadBtn.style.display = "none";
+    progressBar.style.backgroundColor =
+      percent === 100 ? "var(--success-color)" : "var(--primary-color)";
   }
 
-  function handleImageUpload(event) {
-    const file = event.target.files[0];
+  function resetUI() {
+    updateProgress(0, "Sẵn sàng");
+    infoMessage.textContent = "";
+    resultsArea.style.display = "none";
+    uploadArea.style.display = "block";
+    originalImage.src = "";
+    compressedImage.src = "";
+    URL.revokeObjectURL(originalImage.src);
+    URL.revokeObjectURL(compressedImage.src);
+    downloadBtn.href = "#";
+    imageInput.value = ""; // Reset file input
+  }
+
+  function renderInfo(element, data) {
+    element.innerHTML = `
+            <li><span>Định dạng:</span> <span>${data.type}</span></li>
+            <li><span>Kích thước:</span> <span>${data.width}x${
+      data.height
+    } px</span></li>
+            <li><span>Dung lượng:</span> <span>${formatBytes(
+              data.size
+            )}</span></li>
+            ${
+              data.quality
+                ? `<li><span>Chất lượng:</span> <span>${(
+                    data.quality * 100
+                  ).toFixed(0)}%</span></li>`
+                : ""
+            }
+            ${
+              data.ratio
+                ? `<li style="color: var(--success-color);"><span>Giảm:</span> <span>${data.ratio.toFixed(
+                    2
+                  )}%</span></li>`
+                : ""
+            }
+        `;
+  }
+
+  function handleImageUpload(file) {
     if (!file || !file.type.startsWith("image/")) {
-      infoMessage.textContent =
-        "Vui lòng chọn một file ảnh hợp lệ (JPG, PNG, WebP).";
+      infoMessage.textContent = "Vui lòng chọn một file ảnh hợp lệ.";
       return;
     }
-
     if (file.type === "image/gif") {
       infoMessage.textContent =
         "GIF không được hỗ trợ nén bằng phương pháp này.";
@@ -43,76 +90,95 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- Reset và Chuẩn bị ---
-    updateProgress(0, "Đang chuẩn bị...");
-    compressedImage.src = "";
-    compressedInfo.textContent = "";
-    downloadBtn.style.display = "none";
-    downloadBtn.href = "#";
+    uploadArea.style.display = "none";
+    updateProgress(5, "Đang chuẩn bị...");
 
-    // Hiển thị ảnh gốc
     const originalURL = URL.createObjectURL(file);
     originalImage.src = originalURL;
+
     originalImage.onload = () => {
-      originalInfo.textContent = `Loại: ${file.type} | Kích thước: ${
-        originalImage.naturalWidth
-      }x${originalImage.naturalHeight} px | Dung lượng: ${(
-        file.size /
-        1024 /
-        1024
-      ).toFixed(2)} MB`;
-    };
+      renderInfo(originalInfo, {
+        type: file.type,
+        width: originalImage.naturalWidth,
+        height: originalImage.naturalHeight,
+        size: file.size,
+      });
 
-    // --- Gửi tác vụ nén đến Worker ---
-    // 1. Resize về 1/4 Full HD (960px)
-    // 2. Nén về đích 100KB
-    // 3. Chất lượng tối thiểu (để không mờ chữ) là 0.4
-    compressWorker.postMessage({
-      file: file,
-      maxDimension: 960,
-      targetSizeKB: 100,
-      minQuality: 0.4,
-    });
-
-    // --- Lắng nghe kết quả từ Worker ---
-    compressWorker.onmessage = (e) => {
-      const data = e.data;
-
-      if (data.status === "progress") {
-        // Cập nhật Progress Bar theo các mốc
-        updateProgress(data.percent, data.message);
-      } else if (data.status === "complete") {
-        const { compressedBlob, originalSize, compressedSize, compressedMime } =
-          data;
-
-        const compressedURL = URL.createObjectURL(compressedBlob);
-
-        compressedImage.src = compressedURL;
-        compressedImage.onload = () => {
-          const ratio = ((originalSize - compressedSize) / originalSize) * 100;
-          const finalSizeKB = (compressedSize / 1024).toFixed(0);
-
-          let message = `Đích < 100KB. Kết quả: ${finalSizeKB} KB.`;
-          if (compressedSize > 100 * 1024) {
-            message = `Không thể nén về < 100KB (đã cố gắng hết sức).`;
-          }
-
-          compressedInfo.textContent = `${message} | Loại: ${compressedMime} | Kích thước: ${
-            compressedImage.naturalWidth
-          }x${compressedImage.naturalHeight} px | Giảm: ${ratio.toFixed(2)}%`;
-
-          updateProgress(100, "Nén hoàn tất!");
-
-          // Gán link cho nút Download
-          downloadBtn.href = compressedURL;
-          downloadBtn.style.display = "inline-block"; // Hiển thị nút Download
-        };
-      } else if (data.status === "error") {
-        infoMessage.className = "info error";
-        infoMessage.textContent = data.message;
-        updateProgress(0, "LỖI XỬ LÝ");
-      }
+      // Gửi tác vụ nén đến Worker
+      compressWorker.postMessage({
+        file: file,
+        maxDimension: 960,
+        targetSizeKB: 100,
+      });
     };
   }
 
-  input.addEventListener("change", handleImageUpload);
+  // --- Lắng nghe kết quả từ Worker ---
+  compressWorker.onmessage = (e) => {
+    const data = e.data;
+
+    if (data.status === "progress") {
+      updateProgress(data.percent, data.message);
+    } else if (data.status === "complete") {
+      const { compressedBlob, originalSize, compressedSize, bestQuality } =
+        data;
+      const compressedURL = URL.createObjectURL(compressedBlob);
+
+      compressedImage.src = compressedURL;
+      compressedImage.onload = () => {
+        const ratio = ((originalSize - compressedSize) / originalSize) * 100;
+
+        renderInfo(compressedInfo, {
+          type: compressedBlob.type,
+          width: compressedImage.naturalWidth,
+          height: compressedImage.naturalHeight,
+          size: compressedSize,
+          quality: bestQuality,
+          ratio: ratio,
+        });
+
+        let finalMessage = `Nén thành công! Dung lượng giảm ${ratio.toFixed(
+          1
+        )}%.`;
+        if (compressedSize > 100 * 1024) {
+          finalMessage = `Đã nén hết mức có thể nhưng vẫn chưa đạt mục tiêu < 100KB.`;
+        }
+        updateProgress(100, "Hoàn tất!");
+        infoMessage.textContent = finalMessage;
+
+        downloadBtn.href = compressedURL;
+        resultsArea.style.display = "block"; // Hiển thị khu vực kết quả
+      };
+    } else if (data.status === "error") {
+      infoMessage.textContent = data.message;
+      updateProgress(0, "LỖI XỬ LÝ");
+      resultsArea.style.display = "block"; // Vẫn hiển thị nút reset
+    }
+  };
+
+  // --- Event Listeners ---
+  uploadArea.addEventListener("click", () => imageInput.click());
+  imageInput.addEventListener("change", (event) =>
+    handleImageUpload(event.target.files[0])
+  );
+
+  // Drag and Drop
+  uploadArea.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadArea.classList.add("dragover");
+  });
+  uploadArea.addEventListener("dragleave", () => {
+    uploadArea.classList.remove("dragover");
+  });
+  uploadArea.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove("dragover");
+    const file = e.dataTransfer.files[0];
+    handleImageUpload(file);
+  });
+
+  resetBtn.addEventListener("click", resetUI);
+
+  // Khởi tạo giao diện
+  resetUI();
 });

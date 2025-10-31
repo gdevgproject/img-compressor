@@ -116,6 +116,7 @@ self.onmessage = async function (event) {
       originalSize: file.size,
       compressedSize: bestBlob.size,
       compressedMime: "image/webp",
+      bestQuality: bestQuality,
     });
   } catch (error) {
     self.postMessage({ status: "error", message: `Lỗi nén: ${error.message}` });
