@@ -91,12 +91,12 @@ self.onmessage = async function (event) {
         name: "Mobile",
         maxDimension: 480,
         targets: {
-          minimal: 1,
-          vector: 2,
-          graphic: 4,
-          art: 7,
-          standard: 10,
-          complex: 12,
+          minimal: 2,
+          vector: 3,
+          graphic: 7,
+          art: 10,
+          standard: 15,
+          complex: 20,
         },
       },
     };
