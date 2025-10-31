@@ -1,10 +1,10 @@
-// main.js (Phiên bản Hoàn chỉnh - Preview Nâng cao)
+// main.js (PHIÊN BẢN V5.2 - Đã sửa lỗi hiển thị kích thước)
 document.addEventListener("DOMContentLoaded", () => {
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
     warningBox.style.display = "block";
     warningBox.textContent =
-      "LỖI: Trang này phải được chạy trên một Server (ví dụ: VS Code Live Server) để Web Worker hoạt động.";
+      "LỖI: Trang này phải được chạy trên một Server để Web Worker hoạt động.";
   }
 
   // --- Khai báo biến DOM ---
@@ -14,13 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const infoMessage = document.getElementById("infoMessage");
   const resultsArea = document.getElementById("results-area");
   const originalInfo = document.getElementById("originalInfo");
-  const compressedInfo = document.getElementById("compressedInfo");
-  const originalImage = document.getElementById("originalImage");
-  const compressedImage = document.getElementById("compressedImage");
-  const downloadBtn = document.getElementById("downloadBtn");
   const resetBtn = document.getElementById("resetBtn");
+  const generatedVersionsList = document.getElementById(
+    "generatedVersionsList"
+  );
 
-  // Khai báo biến cho khu vực Preview
+  // DOM cho Preview
   const previewArea = document.getElementById("preview-area");
   const previewFrame = document.getElementById("preview-frame");
   const previewImage = document.getElementById("previewImage");
@@ -28,11 +27,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const previewControls = document.querySelector(".preview-controls");
   let tvModal = null;
 
+  // Biến lưu trữ trạng thái
+  let generatedProfiles = [];
+  let blobUrls = [];
+
   const compressWorker = new Worker("compress.worker.js");
 
-  // --- Logic điều khiển Preview ---
+  // --- Logic điều khiển Preview Thông minh ---
   previewControls.addEventListener("click", (e) => {
-    if (e.target.tagName !== "BUTTON") return;
+    if (!e.target.matches(".preview-btn:not(.disabled)")) return;
 
     previewControls
       .querySelectorAll(".preview-btn")
@@ -40,24 +43,39 @@ document.addEventListener("DOMContentLoaded", () => {
     e.target.classList.add("active");
     const device = e.target.dataset.device;
 
+    const profileMap = { web: "Laptop", mobile: "Mobile", tv: "TV" };
+    const profileName = profileMap[device];
+    const targetProfile = generatedProfiles.find((p) => p.name === profileName);
+
+    if (targetProfile) {
+      updatePreviewImage(targetProfile.blobUrl);
+    }
+
     if (tvModal) tvModal.classList.remove("visible");
 
     if (device === "tv") {
       if (!tvModal) createTvModal();
       tvModal.classList.add("visible");
     } else {
-      previewFrame.className = `device-${device}`;
-      previewArea.classList.toggle("desktop-bg", device === "desktop");
+      const frameDeviceMap = { Laptop: "web", Mobile: "mobile" };
+      previewFrame.className = `device-${frameDeviceMap[profileName] || "web"}`;
+      previewArea.classList.remove("desktop-bg");
     }
     updatePreviewInfo(device);
   });
 
+  function updatePreviewImage(url) {
+    previewImage.src = url;
+    if (tvModal) {
+      tvModal.querySelector("img").src = url;
+    }
+  }
+
   function updatePreviewInfo(device) {
     const infoTexts = {
-      web: "Mô phỏng hiển thị bên trong một cửa sổ trình duyệt trên Laptop.",
-      mobile: "Ảnh được hiển thị full-screen trên một điện thoại mô phỏng.",
-      desktop:
-        "Đây là kích thước thật (pixel-by-pixel) của ảnh nén khi xem trên một màn hình lớn.",
+      web: "Mô phỏng hiển thị trên Laptop.",
+      mobile:
+        "Ảnh được hiển thị vừa chiều ngang ở nửa trên màn hình điện thoại.",
       tv: "Mô phỏng ảnh bị kéo dãn trên TV. Chú ý các điểm ảnh bị vỡ hoặc mờ.",
     };
     previewInfo.textContent = infoTexts[device];
@@ -68,11 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tvModal.className = "device-tv-modal";
     tvModal.innerHTML = `
             <button class="close-tv-preview">&times;</button>
-            <div class="tv-bezel">
-                <div class="tv-screen">
-                    <img src="${previewImage.src}" alt="TV Preview" />
-                </div>
-            </div>
+            <div class="tv-bezel"><div class="tv-screen"><img src="" alt="TV Preview" /></div></div>
             <div class="preview-info"></div>`;
     document.body.appendChild(tvModal);
 
@@ -80,12 +94,10 @@ document.addEventListener("DOMContentLoaded", () => {
       tvModal.classList.remove("visible");
       const tvButton = previewControls.querySelector('[data-device="tv"]');
       if (tvButton.classList.contains("active")) {
-        tvButton.classList.remove("active");
-        const webButton = previewControls.querySelector('[data-device="web"]');
-        webButton.classList.add("active");
-        previewFrame.className = "device-web";
-        previewArea.classList.remove("desktop-bg");
-        updatePreviewInfo("web");
+        const defaultBtn = previewControls.querySelector(
+          ".preview-btn:not(.disabled)"
+        );
+        if (defaultBtn) defaultBtn.click();
       }
     });
   }
@@ -113,78 +125,46 @@ document.addEventListener("DOMContentLoaded", () => {
     infoMessage.textContent = "";
     resultsArea.style.display = "none";
     uploadArea.style.display = "block";
-    if (originalImage.src) URL.revokeObjectURL(originalImage.src);
-    if (compressedImage.src) URL.revokeObjectURL(compressedImage.src);
-    originalImage.src = "";
-    compressedImage.src = "";
-    downloadBtn.href = "#";
+    blobUrls.forEach((url) => URL.revokeObjectURL(url));
+    blobUrls = [];
+    generatedProfiles = [];
     imageInput.value = "";
+    generatedVersionsList.innerHTML = "";
     if (tvModal) tvModal.classList.remove("visible");
-  }
-
-  function renderInfo(element, data) {
-    element.innerHTML = `
-            <li><span>Định dạng:</span> <span>${data.type}</span></li>
-            <li><span>Kích thước:</span> <span>${data.width}x${
-      data.height
-    } px</span></li>
-            <li><span>Dung lượng:</span> <span>${formatBytes(
-              data.size
-            )}</span></li>
-            ${
-              data.quality
-                ? `<li><span>Chất lượng:</span> <span>${(
-                    data.quality * 100
-                  ).toFixed(0)}%</span></li>`
-                : ""
-            }
-            ${
-              data.ratio
-                ? `<li style="color: var(--success-color);"><span>Giảm:</span> <span>${data.ratio.toFixed(
-                    2
-                  )}%</span></li>`
-                : ""
-            }
-        `;
+    previewControls.querySelectorAll(".preview-btn").forEach((btn) => {
+      btn.classList.add("disabled");
+      btn.classList.remove("active");
+    });
   }
 
   function handleImageUpload(file) {
     if (!file || !file.type.startsWith("image/")) {
-      infoMessage.textContent = "Vui lòng chọn một file ảnh hợp lệ.";
       return;
     }
     if (file.type === "image/gif") {
-      infoMessage.textContent =
-        "GIF không được hỗ trợ nén bằng phương pháp này.";
       return;
     }
 
+    resetUI();
     uploadArea.style.display = "none";
     updateProgress(5, "Đang chuẩn bị...");
 
     const originalURL = URL.createObjectURL(file);
-    originalImage.src = originalURL;
+    blobUrls.push(originalURL);
 
-    originalImage.onload = () => {
-      renderInfo(originalInfo, {
-        type: file.type,
-        width: originalImage.naturalWidth,
-        height: originalImage.naturalHeight,
-        size: file.size,
-      });
-
-      compressWorker.postMessage({
-        file: file,
-        maxDimension: 960,
-        targets: {
-          minimal: 2,
-          vector: 5,
-          graphic: 15,
-          art: 30,
-          standard: 45,
-          complex: 65,
-        },
-      });
+    const img = new Image();
+    img.src = originalURL;
+    img.onload = () => {
+      originalInfo.innerHTML = `
+                <li><span>Định dạng:</span> <span>${file.type}</span></li>
+                <li><span>Kích thước:</span> <span>${img.naturalWidth}x${
+        img.naturalHeight
+      } px</span></li>
+                <li><span>Dung lượng:</span> <span>${formatBytes(
+                  file.size
+                )}</span></li>
+            `;
+      compressWorker.postMessage({ file: file });
     };
   }
 
@@ -195,39 +175,55 @@ document.addEventListener("DOMContentLoaded", () => {
     if (data.status === "progress") {
       updateProgress(data.percent, data.message);
     } else if (data.status === "complete") {
-      const { compressedBlob, originalSize, compressedSize, bestQuality } =
-        data;
-      const compressedURL = URL.createObjectURL(compressedBlob);
+      generatedProfiles = data.allProfiles;
+      generatedVersionsList.innerHTML = "";
 
-      compressedImage.src = compressedURL;
-      compressedImage.onload = () => {
-        const ratio = ((originalSize - compressedSize) / originalSize) * 100;
+      generatedProfiles.forEach((profile) => {
+        const blobUrl = URL.createObjectURL(profile.blob);
+        blobUrls.push(blobUrl);
+        profile.blobUrl = blobUrl;
 
-        renderInfo(compressedInfo, {
-          type: compressedBlob.type,
-          width: compressedImage.naturalWidth,
-          height: compressedImage.naturalHeight,
-          size: compressedSize,
-          quality: bestQuality,
-          ratio: ratio,
-        });
+        const card = document.createElement("div");
+        card.className = "version-card";
 
-        updateProgress(100, "Hoàn tất!");
-        infoMessage.textContent = `Nén thành công! Dung lượng giảm ${ratio.toFixed(
-          1
-        )}%.`;
+        // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT LÀ ĐÂY ===
+        card.innerHTML = `
+                    <h4>Phiên bản ${profile.name}</h4>
+                    <ul>
+                        <li><span>Kích thước:</span> <span>${profile.width}x${
+          profile.height
+        } px</span></li>
+                        <li><span>Dung lượng:</span> <span>${formatBytes(
+                          profile.blob.size
+                        )}</span></li>
+                        <li><span>Chất lượng:</span> <span>~${(
+                          profile.quality * 100
+                        ).toFixed(0)}%</span></li>
+                    </ul>
+                    <a href="${blobUrl}" download="compressed_${profile.name.toLowerCase()}.webp" class="btn download-version-btn">Tải phiên bản này</a>
+                `;
+        generatedVersionsList.appendChild(card);
+      });
 
-        downloadBtn.href = compressedURL;
-        resultsArea.style.display = "block";
-
-        // === CẬP NHẬT GIAO DIỆN PREVIEW ===
-        previewImage.src = compressedURL;
-        const webButton = previewControls.querySelector('[data-device="web"]');
-        webButton.click(); // Tự động click vào nút web để reset về trạng thái mặc định
-        if (tvModal) {
-          tvModal.querySelector("img").src = compressedURL;
+      const profileMap = { TV: "tv", Laptop: "web", Mobile: "mobile" };
+      generatedProfiles.forEach((profile) => {
+        const device = profileMap[profile.name];
+        if (device) {
+          const btn = previewControls.querySelector(
+            `[data-device="${device}"]`
+          );
+          if (btn) btn.classList.remove("disabled");
         }
-      };
+      });
+
+      const defaultBtn =
+        previewControls.querySelector('[data-device="web"]:not(.disabled)') ||
+        previewControls.querySelector(".preview-btn:not(.disabled)");
+      if (defaultBtn) defaultBtn.click();
+
+      updateProgress(100, "Hoàn tất!");
+      infoMessage.textContent = `Đã tạo thành công ${generatedProfiles.length} phiên bản.`;
+      resultsArea.style.display = "block";
     } else if (data.status === "error") {
       infoMessage.textContent = data.message;
       updateProgress(0, "LỖI XỬ LÝ");
@@ -238,7 +234,6 @@ document.addEventListener("DOMContentLoaded", () => {
   imageInput.addEventListener("change", (event) =>
     handleImageUpload(event.target.files[0])
   );
-
   uploadArea.addEventListener("dragover", (e) => {
     e.preventDefault();
     uploadArea.classList.add("dragover");
@@ -249,10 +244,9 @@ document.addEventListener("DOMContentLoaded", () => {
   uploadArea.addEventListener("drop", (e) => {
     e.preventDefault();
     uploadArea.classList.remove("dragover");
-    const file = e.dataTransfer.files[0];
-    handleImageUpload(file);
+    handleImageUpload(e.dataTransfer.files[0]);
   });
-
   resetBtn.addEventListener("click", resetUI);
+
   resetUI();
 });

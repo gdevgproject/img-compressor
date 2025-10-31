@@ -1,174 +1,218 @@
-// compress.worker.js (PHIÊN BẢN V4 - PHÂN TÍCH CẤU TRÚC)
+// compress.worker.js (PHIÊN BẢN V5.2 - Target Nén Quyết liệt)
 
-/**
- * Phân tích các chỉ số sống còn của ảnh: phổ màu và độ phức tạp cấu trúc.
- * @returns {Promise<{uniqueColors: number, isGrayscale: boolean, detailScore: number}>}
- */
+// --- CÁC HÀM PHÂN TÍCH CỦA V4 (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
   const SAMPLE_SIZE = 100;
   const canvas = new OffscreenCanvas(SAMPLE_SIZE, SAMPLE_SIZE);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(imageBitmap, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
   const imageData = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
-
   const colors = new Set();
   let totalDifference = 0;
   let grayscalePixels = 0;
-
   for (let i = 0; i < imageData.length; i += 4) {
-    const r = imageData[i];
-    const g = imageData[i + 1];
-    const b = imageData[i + 2];
-
+    const r = imageData[i],
+      g = imageData[i + 1],
+      b = imageData[i + 2];
     colors.add(`${r},${g},${b}`);
-
-    // Kiểm tra độ xám
-    if (Math.abs(r - g) < 15 && Math.abs(r - b) < 15) {
-      grayscalePixels++;
-    }
-
-    // Tính toán Detail Score: so sánh với pixel bên phải
+    if (Math.abs(r - g) < 15 && Math.abs(r - b) < 15) grayscalePixels++;
     if ((i / 4) % SAMPLE_SIZE < SAMPLE_SIZE - 1) {
-      // Bỏ qua cột cuối cùng
-      const r_next = imageData[i + 4];
-      const g_next = imageData[i + 5];
-      const b_next = imageData[i + 6];
+      const r_next = imageData[i + 4],
+        g_next = imageData[i + 5],
+        b_next = imageData[i + 6];
       totalDifference +=
         Math.abs(r - r_next) + Math.abs(g - g_next) + Math.abs(b - b_next);
     }
   }
-
   const isGrayscale = grayscalePixels / (SAMPLE_SIZE * SAMPLE_SIZE) > 0.98;
-  // Chuẩn hóa điểm chi tiết về một thang đo dễ hiểu (ví dụ: 0-100)
   const detailScore = (totalDifference / (imageData.length * 3)) * 100;
-
   return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
+// --- HÀM NÉN CỐT LÕI (Không thay đổi) ---
+async function compressProfile(imageBitmap, profile, vitals, onProgress) {
+  // 1. Resize theo cấu hình
+  let newWidth = imageBitmap.width,
+    newHeight = imageBitmap.height;
+  if (Math.max(newWidth, newHeight) > profile.maxDimension) {
+    if (newWidth > newHeight) {
+      newHeight = Math.round((newHeight * profile.maxDimension) / newWidth);
+      newWidth = profile.maxDimension;
+    } else {
+      newWidth = Math.round((newWidth * profile.maxDimension) / newHeight);
+      newHeight = profile.maxDimension;
+    }
+  }
+  const canvas = new OffscreenCanvas(newWidth, newHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
+
+  // 2. Phân loại và chọn Target KB
+  const testBlob = await canvas.convertToBlob({
+    type: "image/webp",
+    quality: 0.85,
+  });
+  const testSizeKB = testBlob.size / 1024;
+  let finalTargetKB;
+  if (vitals.isGrayscale || vitals.detailScore < 1.0)
+    finalTargetKB = profile.targets.minimal;
+  else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0)
+    finalTargetKB = profile.targets.vector;
+  else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5)
+    finalTargetKB = profile.targets.graphic;
+  else if (testSizeKB < 50 || vitals.detailScore < 5.0)
+    finalTargetKB = profile.targets.art;
+  else if (testSizeKB < 90 && vitals.detailScore < 8.0)
+    finalTargetKB = profile.targets.standard;
+  else finalTargetKB = profile.targets.complex;
+
+  // 3. Vòng lặp nén thích ứng
+  let bestBlob = null,
+    bestQuality = 0;
+  const qualitySteps = [
+    0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.3, 0.2,
+    0.1, 0.05,
+  ];
+  for (const quality of qualitySteps) {
+    const blob = await canvas.convertToBlob({ type: "image/webp", quality });
+    if (blob.size <= finalTargetKB * 1024) {
+      bestBlob = blob;
+      bestQuality = quality;
+      break;
+    }
+    bestBlob = blob;
+    bestQuality = quality;
+  }
+
+  onProgress(
+    `Hoàn tất cấu hình ${profile.name} (${(bestBlob.size / 1024).toFixed(0)}KB)`
+  );
+
+  return {
+    name: profile.name,
+    blob: bestBlob,
+    quality: bestQuality,
+    width: newWidth,
+    height: newHeight,
+  };
+}
+
+// --- BỘ ĐIỀU KHIỂN CHÍNH ---
 self.onmessage = async function (event) {
-  const { file, maxDimension, targets } = event.data;
+  const { file } = event.data;
 
   try {
-    // --- Bước 1-3: Đọc, resize (Không đổi) ---
+    // Các mục tiêu nén quyết liệt theo yêu cầu
+    const profiles = {
+      TV: {
+        name: "TV",
+        maxDimension: 1920,
+        targets: {
+          minimal: 15,
+          vector: 20,
+          graphic: 30,
+          art: 45,
+          standard: 60,
+          complex: 70,
+        },
+      },
+      Laptop: {
+        name: "Laptop",
+        maxDimension: 960,
+        targets: {
+          minimal: 3,
+          vector: 6,
+          graphic: 12,
+          art: 20,
+          standard: 30,
+          complex: 40,
+        },
+      },
+      Mobile: {
+        name: "Mobile",
+        maxDimension: 540,
+        targets: {
+          minimal: 1,
+          vector: 2,
+          graphic: 5,
+          art: 8,
+          standard: 12,
+          complex: 15,
+        },
+      },
+    };
+
     self.postMessage({
       status: "progress",
       percent: 10,
       message: "Đọc dữ liệu ảnh...",
     });
     const imageBitmap = await createImageBitmap(file);
-    let newWidth = imageBitmap.width;
-    let newHeight = imageBitmap.height;
-    if (Math.max(newWidth, newHeight) > maxDimension) {
-      if (newWidth > newHeight) {
-        newHeight = (newHeight * maxDimension) / newWidth;
-        newWidth = maxDimension;
-      } else {
-        newWidth = (newWidth * maxDimension) / newHeight;
-        newHeight = maxDimension;
-      }
-    }
-    newWidth = Math.round(newWidth);
-    newHeight = Math.round(newHeight);
-    self.postMessage({
-      status: "progress",
-      percent: 20,
-      message: `Resize về ${newWidth}x${newHeight}px...`,
-    });
-    const canvas = new OffscreenCanvas(newWidth, newHeight);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
+    const originalWidth = imageBitmap.width;
 
-    // --- BỘ NÃO PHÂN LOẠI V4 ---
     self.postMessage({
       status: "progress",
-      percent: 30,
+      percent: 25,
       message: "Phân tích cấu trúc ảnh...",
     });
+    const vitals = await analyzeImageVitals(imageBitmap);
 
-    const [vitals, complexityTestBlob] = await Promise.all([
-      analyzeImageVitals(imageBitmap),
-      canvas.convertToBlob({ type: "image/webp", quality: 0.85 }), // Nén thử ở 85%
-    ]);
-
-    let finalTargetKB;
-    let strategyName;
-    const testSizeKB = complexityTestBlob.size / 1024;
-
-    // Logic phân loại chuyên gia
-    if (vitals.isGrayscale || vitals.detailScore < 1.0) {
-      finalTargetKB = targets.minimal;
-      strategyName = "Tối giản / Đen trắng";
-    } else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0) {
-      finalTargetKB = targets.vector;
-      strategyName = "Icon / Vector-like";
-    } else if (vitals.uniqueColors < 4096 || vitals.detailScore < 3.5) {
-      finalTargetKB = targets.graphic;
-      strategyName = "UI / Đồ họa phẳng";
-    } else if (testSizeKB < 50 || vitals.detailScore < 5.0) {
-      finalTargetKB = targets.art;
-      strategyName = "Tranh vẽ / Art";
-    } else if (testSizeKB < 90 && vitals.detailScore < 8.0) {
-      finalTargetKB = targets.standard;
-      strategyName = "Ảnh Web Chuẩn";
+    // Logic "Thác nước" (Cascading Generation)
+    let profilesToGenerate = [];
+    if (originalWidth > profiles.Laptop.maxDimension) {
+      profilesToGenerate = [profiles.TV, profiles.Laptop, profiles.Mobile];
+    } else if (originalWidth > profiles.Mobile.maxDimension) {
+      profilesToGenerate = [profiles.Laptop, profiles.Mobile];
     } else {
-      finalTargetKB = targets.complex;
-      strategyName = "Ảnh Siêu chi tiết";
+      profilesToGenerate = [profiles.Mobile];
     }
 
-    const finalTargetSizeBytes = finalTargetKB * 1024;
-    const strategyMessage = `Phân loại: ${strategyName}. Mục tiêu < ${finalTargetKB}KB...`;
     self.postMessage({
       status: "progress",
-      percent: 50,
-      message: strategyMessage,
+      percent: 40,
+      message: `Sẽ tạo ${profilesToGenerate.length} phiên bản...`,
     });
 
-    // --- Vòng lặp nén (Không đổi, nhưng giờ mạnh mẽ hơn) ---
-    let bestBlob = null;
-    let bestQuality = 0;
-    const qualitySteps = [
-      0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35,
-      0.3, 0.25, 0.2, 0.15, 0.1, 0.05,
-    ];
-
-    for (let i = 0; i < qualitySteps.length; i++) {
-      const currentQuality = qualitySteps[i];
-      const progressPercent = 50 + i * (50 / qualitySteps.length);
-      self.postMessage({
-        status: "progress",
-        percent: Math.min(99, Math.round(progressPercent)),
-        message: `Thử nén ở Chất lượng ${(currentQuality * 100).toFixed(
-          0
-        )}%...`,
-      });
-      const blob = await canvas.convertToBlob({
-        type: "image/webp",
-        quality: currentQuality,
-      });
-      if (blob.size <= finalTargetSizeBytes) {
-        bestBlob = blob;
-        bestQuality = currentQuality;
-        break;
-      }
-      bestBlob = blob;
-      bestQuality = currentQuality;
+    const results = [];
+    let progressChunk = 60 / profilesToGenerate.length;
+    for (let i = 0; i < profilesToGenerate.length; i++) {
+      const profile = profilesToGenerate[i];
+      const result = await compressProfile(
+        imageBitmap,
+        profile,
+        vitals,
+        (msg) => {
+          self.postMessage({
+            status: "progress",
+            percent: 40 + i * progressChunk,
+            message: msg,
+          });
+        }
+      );
+      results.push(result);
     }
 
-    // --- Hoàn tất (Không đổi) ---
+    const previewResult =
+      results.find((r) => r.name === "Laptop") || results[0];
+
     self.postMessage({
       status: "progress",
       percent: 100,
-      message: `Hoàn tất ở Chất lượng ${(bestQuality * 100).toFixed(0)}%!`,
+      message: `Hoàn tất! Đã tạo ${results.length} phiên bản.`,
     });
     self.postMessage({
       status: "complete",
-      compressedBlob: bestBlob,
+      compressedBlob: previewResult.blob,
+      bestQuality: previewResult.quality,
       originalSize: file.size,
-      compressedSize: bestBlob.size,
+      compressedSize: previewResult.blob.size,
       compressedMime: "image/webp",
-      bestQuality: bestQuality,
+      allProfiles: results,
     });
   } catch (error) {
-    self.postMessage({ status: "error", message: `Lỗi nén: ${error.message}` });
+    self.postMessage({
+      status: "error",
+      message: `Lỗi nén đa cấu hình: ${error.message}`,
+    });
   }
 };
