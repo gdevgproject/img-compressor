@@ -128,12 +128,6 @@
       .info-box li:last-child {
         border-bottom: none;
       }
-      .info-box li span:first-child {
-        font-weight: 500;
-      }
-      .info-box li span:last-child {
-        color: var(--dark-gray);
-      }
       .main-actions {
         text-align: right;
         margin-bottom: 1.5rem;
@@ -150,7 +144,6 @@
         font-weight: bold;
         text-decoration: none;
         display: inline-block;
-        transition: background-color 0.3s, transform 0.1s;
       }
       #resetBtn {
         background-color: var(--dark-gray);
@@ -171,7 +164,7 @@
       }
       .generated-versions-list {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1rem;
       }
       .version-card {
@@ -225,7 +218,6 @@
         border-radius: 20px;
         cursor: pointer;
         font-weight: 500;
-        transition: all 0.3s;
       }
       .preview-btn.active {
         background-color: var(--primary-color);
@@ -314,50 +306,6 @@
         object-fit: contain;
         border-radius: 28px;
       }
-      .device-tv-modal {
-        opacity: 0;
-        visibility: hidden;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.85);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-        padding: 2rem;
-        box-sizing: border-box;
-        transition: opacity 0.3s, visibility 0.3s;
-      }
-      .device-tv-modal.visible {
-        opacity: 1;
-        visibility: visible;
-      }
-      .tv-bezel {
-        position: relative;
-        width: 90%;
-        max-width: 1400px;
-        aspect-ratio: 16/9;
-        background: #111;
-        border-radius: 20px;
-        padding: 1.5%;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      .tv-screen {
-        width: 100%;
-        height: 100%;
-        background: #000;
-      }
-      .tv-screen img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-      }
     </style>
   </head>
   <body>
@@ -388,7 +336,6 @@
           <button id="resetBtn" class="btn">Chọn ảnh khác</button>
         </div>
         <div class="info-box">
-          <
           <h3>Ảnh Gốc</h3>
           <ul id="originalInfo"></ul>
         </div>
@@ -402,9 +349,8 @@
         </div>
         <div id="preview-section">
           <h3>Xem trước trên các thiết bị</h3>
-          <!-- === CẬP NHẬT: Chỉ còn 3 nút preview === -->
+          <!-- === CẬP NHẬT: Chỉ còn 2 nút preview === -->
           <div class="preview-controls">
-            <button class="preview-btn" data-device="l">📺 Large (l)</button>
             <button class="preview-btn" data-device="m">💻 Medium (m)</button>
             <button class="preview-btn" data-device="s">📱 Small (s)</button>
           </div>

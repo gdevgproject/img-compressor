@@ -1,4 +1,4 @@
-// main.js (PHIÊN BẢN V15.0 - Hệ thống 3 Cấu hình l, m, s)
+// main.js (PHIÊN BẢN V16.0 - Hệ thống 2 Cấu hình Tinh gọn)
 document.addEventListener("DOMContentLoaded", () => {
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
@@ -27,13 +27,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const summaryBox = document.getElementById("summaryBox");
   const summaryInfo = document.getElementById("summaryInfo");
 
-  let tvModal = null,
-    originalFileData = {},
+  let originalFileData = {},
     generatedProfiles = [],
     blobUrls = [];
   const compressWorker = new Worker("compress.worker.js");
 
-  // --- Logic điều khiển Preview ---
+  // --- Logic điều khiển Preview (Đã loại bỏ 'l') ---
   previewControls.addEventListener("click", (e) => {
     if (!e.target.matches(".preview-btn:not(.disabled)")) return;
     previewControls
@@ -44,18 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetProfile = generatedProfiles.find((p) => p.name === device);
     if (!targetProfile) return;
 
-    if (tvModal) tvModal.classList.remove("visible");
-
-    if (device === "l") {
-      if (!tvModal) createTvModal();
-      tvModal.querySelector("img").src = targetProfile.blobUrl;
-      tvModal.classList.add("visible");
-    } else {
-      updatePreviewImage(targetProfile.blobUrl);
-      const frameDeviceMap = { m: "web", s: "mobile" };
-      previewFrame.className = `device-${frameDeviceMap[device] || "web"}`;
-      previewArea.classList.remove("desktop-bg");
-    }
+    updatePreviewImage(targetProfile.blobUrl);
+    const frameDeviceMap = { m: "web", s: "mobile" };
+    previewFrame.className = `device-${frameDeviceMap[device] || "web"}`;
     updatePreviewInfo(device);
   });
 
@@ -65,28 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updatePreviewInfo(device) {
     const infoTexts = {
-      l: "Phiên bản Large (1080px) cho màn hình lớn.",
       m: "Phiên bản Medium (720px) cho web/laptop và điện thoại.",
       s: "Phiên bản Small (360px) cho preview nhỏ, 1/3 màn hình điện thoại.",
     };
     previewInfo.textContent = infoTexts[device];
-  }
-
-  function createTvModal() {
-    tvModal = document.createElement("div");
-    tvModal.className = "device-tv-modal";
-    tvModal.innerHTML = `<button class="close-tv-preview">&times;</button><div class="tv-bezel"><div class="tv-screen"><img src="" alt="TV Preview" /></div></div>`;
-    document.body.appendChild(tvModal);
-    tvModal.querySelector(".close-tv-preview").addEventListener("click", () => {
-      tvModal.classList.remove("visible");
-      const activeButton = previewControls.querySelector(".preview-btn.active");
-      if (activeButton && activeButton.dataset.device === "l") {
-        const defaultBtn = previewControls.querySelector(
-          '[data-device="m"]:not(.disabled)'
-        );
-        if (defaultBtn) defaultBtn.click();
-      }
-    });
   }
 
   function formatBytes(bytes, decimals = 2) {
@@ -119,10 +91,6 @@ document.addEventListener("DOMContentLoaded", () => {
     blobUrls.forEach((url) => URL.revokeObjectURL(url));
     (blobUrls = []), (originalFileData = {}), (generatedProfiles = []);
     (imageInput.value = ""), (generatedVersionsList.innerHTML = "");
-    if (tvModal) {
-      document.body.removeChild(tvModal);
-      tvModal = null;
-    }
     previewControls.querySelectorAll(".preview-btn").forEach((btn) => {
       btn.classList.add("disabled");
       btn.classList.remove("active");
@@ -224,7 +192,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // --- Logic Sao chép & Event Listeners (Không đổi) ---
   function handleCopyResults() {
     let report = "--- KẾT QUẢ NÉN ẢNH ---\n\n";
     report += "ẢNH GỐC:\n";
@@ -248,6 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 2000);
     });
   }
+
   imageInput.addEventListener("change", (event) =>
     handleImageUpload(event.target.files[0])
   );
