@@ -104,6 +104,10 @@
         padding: 1rem;
         border-radius: 8px;
         border: 1px solid var(--border-color);
+        margin-bottom: 1.5rem;
+      }
+      .info-box:last-child {
+        margin-bottom: 0;
       }
       .info-box h3 {
         margin-top: 0;
@@ -174,7 +178,7 @@
         background-color: #138496;
       }
       #generated-versions-section {
-        margin-top: 2rem;
+        margin-top: 1.5rem;
       }
       #generated-versions-section h3 {
         text-align: center;
@@ -337,6 +341,24 @@
         object-fit: contain;
         border-radius: 28px;
       }
+
+      /* === SỬA LỖI: CSS DÀNH RIÊNG CHO PREVIEW THUMBNAIL (TINY) === */
+      #preview-frame.device-thumbnail {
+        width: auto;
+        height: auto;
+        padding: 0;
+        border: none;
+        background: transparent;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+      }
+      #preview-frame.device-thumbnail #previewImage {
+        width: auto;
+        height: auto;
+        max-width: 120px;
+        border-radius: 4px;
+      }
+
       .device-tv-modal {
         opacity: 0;
         visibility: hidden;
@@ -426,13 +448,19 @@
           <h3>Ảnh Gốc</h3>
           <ul id="originalInfo"></ul>
         </div>
+
+        <!-- === THÊM MỚI: Khu vực Tổng quan Kết quả === -->
+        <div class="info-box" id="summaryBox" style="display: none">
+          <h3>Tổng quan Kết quả</h3>
+          <ul id="summaryInfo"></ul>
+        </div>
+
         <div id="generated-versions-section">
           <h3>Các phiên bản đã tạo</h3>
           <div class="generated-versions-list" id="generatedVersionsList"></div>
         </div>
         <div id="preview-section">
           <h3>Xem trước trên các thiết bị</h3>
-          <!-- === CẬP NHẬT: 4 nút preview mới === -->
           <div class="preview-controls">
             <button class="preview-btn" data-device="l">📺 Large (l)</button>
             <button class="preview-btn" data-device="m">💻 Medium (m)</button>

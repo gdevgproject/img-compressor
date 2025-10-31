@@ -1,4 +1,4 @@
-// main.js (PHIÊN BẢN V9.0 - Hỗ trợ 4 Cấu hình t, s, m, l)
+// main.js (PHIÊN BẢN V9.2 - Hiển thị Tổng KB & Sửa Preview Tiny)
 document.addEventListener("DOMContentLoaded", () => {
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
@@ -25,6 +25,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const previewImage = document.getElementById("previewImage");
   const previewInfo = document.getElementById("previewInfo");
 
+  // === DOM MỚI CHO TỔNG QUAN ===
+  const summaryBox = document.getElementById("summaryBox");
+  const summaryInfo = document.getElementById("summaryInfo");
+
   let tvModal = null;
   let originalFileData = {};
   let generatedProfiles = [];
@@ -39,22 +43,19 @@ document.addEventListener("DOMContentLoaded", () => {
       .forEach((btn) => btn.classList.remove("active"));
     e.target.classList.add("active");
     const device = e.target.dataset.device;
-
-    // === CẬP NHẬT: Mapping trực tiếp từ data-device sang profile name ===
     const targetProfile = generatedProfiles.find((p) => p.name === device);
     if (!targetProfile) return;
 
     if (tvModal) tvModal.classList.remove("visible");
 
     if (device === "l") {
-      // Chỉ bản 'l' mới dùng modal TV
       if (!tvModal) createTvModal();
       tvModal.querySelector("img").src = targetProfile.blobUrl;
       tvModal.classList.add("visible");
     } else {
       updatePreviewImage(targetProfile.blobUrl);
-      // === CẬP NHẬT: Chọn frame phù hợp cho từng loại ===
-      const frameDeviceMap = { m: "web", s: "mobile", t: "web" };
+      // === SỬA LỖI: Áp dụng style 'thumbnail' cho phiên bản 't' ===
+      const frameDeviceMap = { m: "web", s: "mobile", t: "thumbnail" };
       previewFrame.className = `device-${frameDeviceMap[device] || "web"}`;
       previewArea.classList.remove("desktop-bg");
     }
@@ -70,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
       l: "Mô phỏng phiên bản Large trên màn hình lớn.",
       m: "Mô phỏng phiên bản Medium trên giao diện web/laptop.",
       s: "Mô phỏng phiên bản Small trên màn hình điện thoại.",
-      t: "Mô phỏng phiên bản Tiny, dùng cho thumbnail.",
+      t: "Mô phỏng phiên bản Tiny, hiển thị ở kích thước tự nhiên.",
     };
     previewInfo.textContent = infoTexts[device];
   }
@@ -92,7 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- Các hàm tiện ích và quản lý UI ---
   function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -115,6 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     infoMessage.textContent = "";
     resultsArea.style.display = "none";
     uploadArea.style.display = "block";
+    summaryBox.style.display = "none"; // Ẩn box tổng quan
     blobUrls.forEach((url) => URL.revokeObjectURL(url));
     blobUrls = [];
     originalFileData = {};
@@ -173,13 +174,17 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (data.status === "complete") {
       generatedProfiles = data.allProfiles;
       generatedVersionsList.innerHTML = "";
+
+      // === TÍNH TOÁN TỔNG DUNG LƯỢNG ===
+      let totalCompressedSize = 0;
+
       generatedProfiles.forEach((profile) => {
+        totalCompressedSize += profile.blob.size; // Cộng dồn dung lượng
         const blobUrl = URL.createObjectURL(profile.blob);
         blobUrls.push(blobUrl);
         profile.blobUrl = blobUrl;
         const card = document.createElement("div");
         card.className = "version-card";
-        // === CẬP NHẬT: Tên phiên bản trong thẻ kết quả và tên file tải về ===
         card.innerHTML = `<h4>Phiên bản ${profile.name.toUpperCase()}</h4><ul><li><span>Kích thước:</span> <span>${
           profile.width
         }x${
@@ -196,15 +201,23 @@ document.addEventListener("DOMContentLoaded", () => {
         generatedVersionsList.appendChild(card);
       });
 
-      // Kích hoạt các nút preview tương ứng
+      // === HIỂN THỊ TỔNG DUNG LƯỢNG ===
+      summaryInfo.innerHTML = `
+        <li><span>Số phiên bản tạo ra:</span> <span>${
+          generatedProfiles.length
+        }</span></li>
+        <li><span>Tổng dung lượng nén:</span> <span>${formatBytes(
+          totalCompressedSize
+        )}</span></li>
+      `;
+      summaryBox.style.display = "block";
+
       generatedProfiles.forEach((profile) => {
         const btn = previewControls.querySelector(
           `[data-device="${profile.name}"]`
         );
         if (btn) btn.classList.remove("disabled");
       });
-
-      // === CẬP NHẬT: Chọn preview mặc định ưu tiên 'm' -> 's' -> ... ===
       const defaultBtn =
         previewControls.querySelector('[data-device="m"]:not(.disabled)') ||
         previewControls.querySelector('[data-device="s"]:not(.disabled)') ||
@@ -220,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // --- Logic Sao chép Kết quả (Tự động cập nhật theo tên mới) ---
+  // --- Logic Sao chép Kết quả (Không thay đổi) ---
   function handleCopyResults() {
     let report = "--- KẾT QUẢ NÉN ẢNH ---\n\n";
     report += "ẢNH GỐC:\n";
@@ -251,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  // --- Event Listeners ---
+  // --- Event Listeners (Không thay đổi) ---
   imageInput.addEventListener("change", (event) =>
     handleImageUpload(event.target.files[0])
   );
