@@ -142,7 +142,7 @@ self.onmessage = async function (event) {
           ICON: 2.5,
           UI: 8,
           ILLUSTRATION: 6,
-          ART: 12,
+          ART: 15,
           PHOTO: 15,
           PHOTO_COMPLEX: 16,
           TEXTURE: 17,
@@ -150,12 +150,12 @@ self.onmessage = async function (event) {
       },
       t: {
         name: "t",
-        maxDimension: 120,
+        maxDimension: 100,
         targets: {
           ICON: 0.8,
           UI: 2,
           ILLUSTRATION: 1.5,
-          ART: 2.5,
+          ART: 3,
           PHOTO: 2.8,
           PHOTO_COMPLEX: 3,
           TEXTURE: 3,
