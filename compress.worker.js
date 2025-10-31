@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V6 - Nén Lai Theo Loại Đầu Vào)
+// compress.worker.js (PHIÊN BẢN V6.1 - Cập nhật Kích thước Resize Chuẩn)
 
 // --- CÁC HÀM PHÂN TÍCH CỦA V4 (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
@@ -29,7 +29,7 @@ async function analyzeImageVitals(imageBitmap) {
   return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
-// --- HÀM NÉN CỐT LÕI (Nâng cấp với logic lai) ---
+// --- HÀM NÉN CỐT LÕI (Không thay đổi) ---
 async function compressProfile(
   imageBitmap,
   profile,
@@ -37,7 +37,6 @@ async function compressProfile(
   inputType,
   onProgress
 ) {
-  // 1. Resize theo cấu hình
   let newWidth = imageBitmap.width,
     newHeight = imageBitmap.height;
   if (Math.max(newWidth, newHeight) > profile.maxDimension) {
@@ -52,14 +51,12 @@ async function compressProfile(
   const canvas = new OffscreenCanvas(newWidth, newHeight);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
-
-  // 2. Phân loại và chọn Target KB
   const testBlob = await canvas.convertToBlob({
     type: "image/webp",
     quality: 0.85,
   });
   const testSizeKB = testBlob.size / 1024;
-  let category = "complex"; // Mặc định
+  let category = "complex";
   if (vitals.isGrayscale || vitals.detailScore < 1.0) {
     category = "minimal";
   } else if (vitals.uniqueColors < 256 && vitals.detailScore < 2.0) {
@@ -72,22 +69,17 @@ async function compressProfile(
     category = "standard";
   }
   const finalTargetKB = profile.targets[category];
-
-  // === LOGIC LAI V6: Xử lý trước CHỈ KHI LÀ ẢNH CHỤP PHỨC TẠP ===
   const isPhotoType =
     inputType.includes("jpeg") ||
     inputType.includes("heic") ||
     inputType.includes("jpg");
   if ((category === "standard" || category === "complex") && isPhotoType) {
     onProgress(`Làm mịn nhiễu cho ảnh chụp...`);
-    // Áp dụng bộ lọc làm mờ 2-pass hiệu quả hơn
     ctx.filter = "blur(0.4px)";
-    ctx.drawImage(canvas, 0, 0); // Pass 1
-    ctx.drawImage(canvas, 0, 0); // Pass 2
+    ctx.drawImage(canvas, 0, 0);
+    ctx.drawImage(canvas, 0, 0);
     ctx.filter = "none";
   }
-
-  // 3. Vòng lặp nén thích ứng
   let bestBlob = null,
     bestQuality = 0;
   const qualitySteps = [
@@ -104,7 +96,6 @@ async function compressProfile(
     bestBlob = blob;
     bestQuality = quality;
   }
-
   onProgress(
     `Hoàn tất cấu hình ${profile.name} (${(bestBlob.size / 1024).toFixed(0)}KB)`
   );
@@ -121,49 +112,47 @@ async function compressProfile(
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // Giữ nguyên các mục tiêu nén quyết liệt
+    // === CẬP NHẬT KÍCH THƯỚC VÀ TARGETS MỚI TẠI ĐÂY ===
     const profiles = {
       TV: {
         name: "TV",
-        maxDimension: 1920,
+        maxDimension: 1080,
         targets: {
-          minimal: 15,
-          vector: 20,
-          graphic: 30,
-          art: 45,
-          standard: 60,
-          complex: 70,
+          minimal: 12,
+          vector: 18,
+          graphic: 25,
+          art: 40,
+          standard: 55,
+          complex: 65,
         },
       },
       Laptop: {
         name: "Laptop",
-        maxDimension: 960,
+        maxDimension: 720,
         targets: {
-          minimal: 3,
-          vector: 6,
-          graphic: 12,
-          art: 20,
-          standard: 30,
-          complex: 40,
+          minimal: 2.5,
+          vector: 5,
+          graphic: 10,
+          art: 18,
+          standard: 25,
+          complex: 35,
         },
       },
       Mobile: {
         name: "Mobile",
-        maxDimension: 540,
+        maxDimension: 480,
         targets: {
           minimal: 1,
           vector: 2,
-          graphic: 5,
-          art: 8,
-          standard: 12,
-          complex: 15,
+          graphic: 4,
+          art: 7,
+          standard: 10,
+          complex: 12,
         },
       },
     };
 
-    // === BƯỚC MỚI: Lấy loại file đầu vào ===
     const inputType = file.type.toLowerCase();
-
     self.postMessage({
       status: "progress",
       percent: 10,
@@ -171,15 +160,12 @@ self.onmessage = async function (event) {
     });
     const imageBitmap = await createImageBitmap(file);
     const originalWidth = imageBitmap.width;
-
     self.postMessage({
       status: "progress",
       percent: 25,
       message: "Phân tích cấu trúc ảnh...",
     });
     const vitals = await analyzeImageVitals(imageBitmap);
-
-    // Logic "Thác nước" (Cascading Generation)
     let profilesToGenerate = [];
     if (originalWidth > profiles.Laptop.maxDimension) {
       profilesToGenerate = [profiles.TV, profiles.Laptop, profiles.Mobile];
@@ -188,18 +174,15 @@ self.onmessage = async function (event) {
     } else {
       profilesToGenerate = [profiles.Mobile];
     }
-
     self.postMessage({
       status: "progress",
       percent: 40,
       message: `Sẽ tạo ${profilesToGenerate.length} phiên bản...`,
     });
-
     const results = [];
     let progressChunk = 60 / profilesToGenerate.length;
     for (let i = 0; i < profilesToGenerate.length; i++) {
       const profile = profilesToGenerate[i];
-      // Truyền `inputType` vào hàm nén
       const result = await compressProfile(
         imageBitmap,
         profile,
@@ -215,7 +198,6 @@ self.onmessage = async function (event) {
       );
       results.push(result);
     }
-
     const previewResult =
       results.find((r) => r.name === "Laptop") || results[0];
     self.postMessage({
