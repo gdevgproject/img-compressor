@@ -1,4 +1,4 @@
-// main.js (PHIÊN BẢN V9.2 - Hiển thị Tổng KB & Sửa Preview Tiny)
+// main.js (PHIÊN BẢN V15.0 - Hệ thống 3 Cấu hình l, m, s)
 document.addEventListener("DOMContentLoaded", () => {
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
@@ -24,15 +24,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const previewFrame = document.getElementById("preview-frame");
   const previewImage = document.getElementById("previewImage");
   const previewInfo = document.getElementById("previewInfo");
-
-  // === DOM MỚI CHO TỔNG QUAN ===
   const summaryBox = document.getElementById("summaryBox");
   const summaryInfo = document.getElementById("summaryInfo");
 
-  let tvModal = null;
-  let originalFileData = {};
-  let generatedProfiles = [];
-  let blobUrls = [];
+  let tvModal = null,
+    originalFileData = {},
+    generatedProfiles = [],
+    blobUrls = [];
   const compressWorker = new Worker("compress.worker.js");
 
   // --- Logic điều khiển Preview ---
@@ -54,8 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tvModal.classList.add("visible");
     } else {
       updatePreviewImage(targetProfile.blobUrl);
-      // === SỬA LỖI: Áp dụng style 'thumbnail' cho phiên bản 't' ===
-      const frameDeviceMap = { m: "web", s: "mobile", t: "thumbnail" };
+      const frameDeviceMap = { m: "web", s: "mobile" };
       previewFrame.className = `device-${frameDeviceMap[device] || "web"}`;
       previewArea.classList.remove("desktop-bg");
     }
@@ -68,10 +65,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updatePreviewInfo(device) {
     const infoTexts = {
-      l: "Mô phỏng phiên bản Large trên màn hình lớn.",
-      m: "Mô phỏng phiên bản Medium trên giao diện web/laptop.",
-      s: "Mô phỏng phiên bản Small trên màn hình điện thoại.",
-      t: "Mô phỏng phiên bản Tiny, hiển thị ở kích thước tự nhiên.",
+      l: "Phiên bản Large (1080px) cho màn hình lớn.",
+      m: "Phiên bản Medium (720px) cho web/laptop và điện thoại.",
+      s: "Phiên bản Small (360px) cho preview nhỏ, 1/3 màn hình điện thoại.",
     };
     previewInfo.textContent = infoTexts[device];
   }
@@ -79,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function createTvModal() {
     tvModal = document.createElement("div");
     tvModal.className = "device-tv-modal";
-    tvModal.innerHTML = `<button class="close-tv-preview">&times;</button><div class="tv-bezel"><div class="tv-screen"><img src="" alt="TV Preview" /></div></div><div class="preview-info"></div>`;
+    tvModal.innerHTML = `<button class="close-tv-preview">&times;</button><div class="tv-bezel"><div class="tv-screen"><img src="" alt="TV Preview" /></div></div>`;
     document.body.appendChild(tvModal);
     tvModal.querySelector(".close-tv-preview").addEventListener("click", () => {
       tvModal.classList.remove("visible");
@@ -96,10 +92,15 @@ document.addEventListener("DOMContentLoaded", () => {
   function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+    return (
+      parseFloat(
+        (bytes / Math.pow(k, i)).toFixed(decimals < 0 ? 0 : decimals)
+      ) +
+      " " +
+      sizes[i]
+    );
   }
 
   function updateProgress(percent, text) {
@@ -112,16 +113,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function resetUI() {
     updateProgress(0, "Sẵn sàng");
-    infoMessage.textContent = "";
     resultsArea.style.display = "none";
     uploadArea.style.display = "block";
-    summaryBox.style.display = "none"; // Ẩn box tổng quan
+    summaryBox.style.display = "none";
     blobUrls.forEach((url) => URL.revokeObjectURL(url));
-    blobUrls = [];
-    originalFileData = {};
-    generatedProfiles = [];
-    imageInput.value = "";
-    generatedVersionsList.innerHTML = "";
+    (blobUrls = []), (originalFileData = {}), (generatedProfiles = []);
+    (imageInput.value = ""), (generatedVersionsList.innerHTML = "");
     if (tvModal) {
       document.body.removeChild(tvModal);
       tvModal = null;
@@ -174,12 +171,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (data.status === "complete") {
       generatedProfiles = data.allProfiles;
       generatedVersionsList.innerHTML = "";
-
-      // === TÍNH TOÁN TỔNG DUNG LƯỢNG ===
       let totalCompressedSize = 0;
 
       generatedProfiles.forEach((profile) => {
-        totalCompressedSize += profile.blob.size; // Cộng dồn dung lượng
+        totalCompressedSize += profile.blob.size;
         const blobUrl = URL.createObjectURL(profile.blob);
         blobUrls.push(blobUrl);
         profile.blobUrl = blobUrl;
@@ -201,15 +196,11 @@ document.addEventListener("DOMContentLoaded", () => {
         generatedVersionsList.appendChild(card);
       });
 
-      // === HIỂN THỊ TỔNG DUNG LƯỢNG ===
-      summaryInfo.innerHTML = `
-        <li><span>Số phiên bản tạo ra:</span> <span>${
-          generatedProfiles.length
-        }</span></li>
-        <li><span>Tổng dung lượng nén:</span> <span>${formatBytes(
-          totalCompressedSize
-        )}</span></li>
-      `;
+      summaryInfo.innerHTML = `<li><span>Số phiên bản tạo ra:</span> <span>${
+        generatedProfiles.length
+      }</span></li><li><span>Tổng dung lượng nén:</span> <span>${formatBytes(
+        totalCompressedSize
+      )}</span></li>`;
       summaryBox.style.display = "block";
 
       generatedProfiles.forEach((profile) => {
@@ -218,9 +209,9 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         if (btn) btn.classList.remove("disabled");
       });
+
       const defaultBtn =
         previewControls.querySelector('[data-device="m"]:not(.disabled)') ||
-        previewControls.querySelector('[data-device="s"]:not(.disabled)') ||
         previewControls.querySelector(".preview-btn:not(.disabled)");
       if (defaultBtn) defaultBtn.click();
 
@@ -233,7 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // --- Logic Sao chép Kết quả (Không thay đổi) ---
+  // --- Logic Sao chép & Event Listeners (Không đổi) ---
   function handleCopyResults() {
     let report = "--- KẾT QUẢ NÉN ẢNH ---\n\n";
     report += "ẢNH GỐC:\n";
@@ -249,22 +240,14 @@ document.addEventListener("DOMContentLoaded", () => {
         0
       )}%\n`;
     });
-    navigator.clipboard
-      .writeText(report)
-      .then(() => {
-        const originalText = copyResultsBtn.textContent;
-        copyResultsBtn.textContent = "✓ Đã sao chép!";
-        setTimeout(() => {
-          copyResultsBtn.textContent = originalText;
-        }, 2000);
-      })
-      .catch((err) => {
-        console.error("Lỗi khi sao chép: ", err);
-        alert("Không thể sao chép kết quả.");
-      });
+    navigator.clipboard.writeText(report).then(() => {
+      const originalText = copyResultsBtn.textContent;
+      copyResultsBtn.textContent = "✓ Đã sao chép!";
+      setTimeout(() => {
+        copyResultsBtn.textContent = originalText;
+      }, 2000);
+    });
   }
-
-  // --- Event Listeners (Không thay đổi) ---
   imageInput.addEventListener("change", (event) =>
     handleImageUpload(event.target.files[0])
   );

@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V14.0 FINAL - Phân loại Tinh chỉnh & Ngân sách Tối ưu)
+// compress.worker.js (PHIÊN BẢN V15.0 FINAL - Hệ thống 3 Cấu hình l, m, s)
 
 // --- BỘ NÃO PHÂN TÍCH (Không thay đổi thuật toán, chỉ dùng kết quả) ---
 function sobelOperator(x, y, width, data) {
@@ -107,7 +107,7 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // === BẢNG TARGET V14.0 (COMPRESSION MATRIX < 100KB) ===
+    // === BẢNG TARGET V15.0 (3 Cấu hình) ===
     const profiles = {
       l: {
         name: "l",
@@ -116,7 +116,7 @@ self.onmessage = async function (event) {
           ICON: 8,
           UI: 22,
           ILLUSTRATION: 18,
-          ART: 27,
+          ART: 30,
           PHOTO: 38,
           PHOTO_COMPLEX: 45,
           TEXTURE: 48,
@@ -129,36 +129,23 @@ self.onmessage = async function (event) {
           ICON: 4,
           UI: 14,
           ILLUSTRATION: 10,
-          ART: 27,
-          PHOTO: 25,
+          ART: 18,
+          PHOTO: 22,
           PHOTO_COMPLEX: 25,
           TEXTURE: 27,
         },
       },
       s: {
         name: "s",
-        maxDimension: 480,
+        maxDimension: 360,
         targets: {
-          ICON: 2.5,
-          UI: 8,
-          ILLUSTRATION: 6,
-          ART: 15,
-          PHOTO: 15,
-          PHOTO_COMPLEX: 16,
-          TEXTURE: 17,
-        },
-      },
-      t: {
-        name: "t",
-        maxDimension: 110,
-        targets: {
-          ICON: 0.8,
-          UI: 2,
-          ILLUSTRATION: 1.5,
-          ART: 4,
-          PHOTO: 2.8,
-          PHOTO_COMPLEX: 3,
-          TEXTURE: 3,
+          ICON: 1.5,
+          UI: 6,
+          ILLUSTRATION: 4,
+          ART: 8,
+          PHOTO: 10,
+          PHOTO_COMPLEX: 11,
+          TEXTURE: 12,
         },
       },
     };
@@ -177,8 +164,8 @@ self.onmessage = async function (event) {
     });
     const vitals = await analyzeImageVitals(imageBitmap);
 
-    // === LOGIC PHÂN LOẠI V14.0 (7 CẤP ĐỘ) ===
-    let category = "TEXTURE"; // Mặc định
+    // LOGIC PHÂN LOẠI V14.0 (Giữ nguyên)
+    let category = "TEXTURE";
     if (vitals.isGrayscale && vitals.flatnessRatio > 0.8) category = "ICON";
     else if (vitals.flatnessRatio > 0.7 && vitals.uniqueColors < 128)
       category = "ICON";
@@ -190,34 +177,14 @@ self.onmessage = async function (event) {
     else if (vitals.edgeDensity < 70) category = "PHOTO";
     else if (vitals.edgeDensity < 85) category = "PHOTO_COMPLEX";
 
-    // === GHI NHẬT KÝ PHÂN TÍCH V14.0 ===
     function logAnalysis() {
-      console.group("---[ PHÂN TÍCH ẢNH V14.0 ]---");
+      console.group("---[ PHÂN TÍCH ẢNH V15.0 ]---");
       console.log("Dữ liệu thô:", {
         ...vitals,
         edgeDensity: vitals.edgeDensity.toFixed(2),
         flatnessRatio: vitals.flatnessRatio.toFixed(2),
         colorSparsity: vitals.colorSparsity.toFixed(4),
       });
-      console.log(
-        "%cGiải thích các chỉ số:",
-        "color: #007bff; font-weight: bold;"
-      );
-      console.log(
-        `- Tỷ lệ vùng phẳng (flatnessRatio): ${vitals.flatnessRatio.toFixed(
-          2
-        )} ( > 0.7 là ICON, > 0.4 là UI )`
-      );
-      console.log(
-        `- Mật độ biên cạnh (edgeDensity): ${vitals.edgeDensity.toFixed(
-          2
-        )} ( < 55 là ART, < 70 là PHOTO, < 85 là PHOTO_COMPLEX )`
-      );
-      console.log(
-        `- Độ thưa thớt màu (colorSparsity): ${vitals.colorSparsity.toFixed(
-          4
-        )} ( < 0.025 là ILLUSTRATION/Anime )`
-      );
       console.log(
         "%c=> KẾT LUẬN PHÂN LOẠI:",
         "color: #28a745; font-weight: bold;"
@@ -230,24 +197,25 @@ self.onmessage = async function (event) {
     }
     logAnalysis();
 
-    // BƯỚC 2 -> 3: XÁC ĐỊNH PHIÊN BẢN VÀ RESIZE (Không đổi)
+    // BƯỚC 2: XÁC ĐỊNH CÁC PHIÊN BẢN CẦN TẠO (Logic thác nước 3 cấp)
     const originalWidth = imageBitmap.width;
     let profilesToGenerate = [];
     if (originalWidth > profiles.m.maxDimension) {
-      profilesToGenerate = [profiles.l, profiles.m, profiles.s, profiles.t];
+      profilesToGenerate = [profiles.l, profiles.m, profiles.s];
     } else if (originalWidth > profiles.s.maxDimension) {
-      profilesToGenerate = [profiles.m, profiles.s, profiles.t];
-    } else if (originalWidth > profiles.t.maxDimension) {
-      profilesToGenerate = [profiles.s, profiles.t];
+      profilesToGenerate = [profiles.m, profiles.s];
     } else {
-      profilesToGenerate = [profiles.t];
+      profilesToGenerate = [profiles.s];
     }
     profilesToGenerate.sort((a, b) => b.maxDimension - a.maxDimension);
+
     self.postMessage({
       status: "progress",
       percent: 40,
       message: `Chuẩn bị tạo ${profilesToGenerate.length} phiên bản...`,
     });
+
+    // BƯỚC 3: RESIZE (Không đổi)
     const resizedCanvases = {};
     let lastSource = imageBitmap;
     for (const profile of profilesToGenerate) {
@@ -291,7 +259,6 @@ self.onmessage = async function (event) {
         inputType.includes("heic") ||
         inputType.includes("jpg");
 
-      // Bộ lọc tăng cường thị giác
       if (
         (category === "PHOTO" ||
           category === "PHOTO_COMPLEX" ||
@@ -305,7 +272,8 @@ self.onmessage = async function (event) {
       if (category !== "ICON") {
         let contrast = 1.03,
           saturate = 1.03;
-        if (profile.name === "s" || profile.name === "t") {
+        if (profile.name === "s") {
+          // Chỉ áp dụng bộ lọc mạnh cho bản 's'
           contrast = 1.08;
           saturate = 1.05;
         }
@@ -329,10 +297,7 @@ self.onmessage = async function (event) {
     const results = await Promise.all(compressionPromises);
 
     // BƯỚC 5: GỬI KẾT QUẢ
-    const previewResult =
-      results.find((r) => r.name === "m") ||
-      results.find((r) => r.name === "s") ||
-      results[0];
+    const previewResult = results.find((r) => r.name === "m") || results[0]; // Ưu tiên 'm', nếu không có thì lấy bản đầu tiên ('s')
     self.postMessage({
       status: "progress",
       percent: 100,
