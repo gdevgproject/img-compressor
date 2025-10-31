@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V6.1 - Cập nhật Kích thước Resize Chuẩn)
+// compress.worker.js (PHIÊN BẢN V7.0 - Tối ưu thuật toán nén bằng Binary Search)
 
 // --- CÁC HÀM PHÂN TÍCH CỦA V4 (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
@@ -29,7 +29,7 @@ async function analyzeImageVitals(imageBitmap) {
   return { uniqueColors: colors.size, isGrayscale, detailScore };
 }
 
-// --- HÀM NÉN CỐT LÕI (Không thay đổi) ---
+// --- HÀM NÉN CỐT LÕI (ĐÃ TỐI ƯU HIỆU NĂNG) ---
 async function compressProfile(
   imageBitmap,
   profile,
@@ -37,6 +37,7 @@ async function compressProfile(
   inputType,
   onProgress
 ) {
+  // 1. Resize ảnh (Logic không đổi)
   let newWidth = imageBitmap.width,
     newHeight = imageBitmap.height;
   if (Math.max(newWidth, newHeight) > profile.maxDimension) {
@@ -51,6 +52,8 @@ async function compressProfile(
   const canvas = new OffscreenCanvas(newWidth, newHeight);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(imageBitmap, 0, 0, newWidth, newHeight);
+
+  // 2. Phân loại ảnh để xác định dung lượng mục tiêu (Logic không đổi)
   const testBlob = await canvas.convertToBlob({
     type: "image/webp",
     quality: 0.85,
@@ -68,7 +71,9 @@ async function compressProfile(
   } else if (testSizeKB < 90 && vitals.detailScore < 8.0) {
     category = "standard";
   }
-  const finalTargetKB = profile.targets[category];
+  const finalTargetBytes = profile.targets[category] * 1024;
+
+  // 3. Áp dụng bộ lọc cho ảnh chụp (Logic không đổi)
   const isPhotoType =
     inputType.includes("jpeg") ||
     inputType.includes("heic") ||
@@ -80,22 +85,38 @@ async function compressProfile(
     ctx.drawImage(canvas, 0, 0);
     ctx.filter = "none";
   }
-  let bestBlob = null,
-    bestQuality = 0;
-  const qualitySteps = [
-    0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.3, 0.2,
-    0.1, 0.05,
-  ];
-  for (const quality of qualitySteps) {
+
+  // === THAY ĐỔI CỐT LÕI: TỐI ƯU THUẬT TOÁN NÉN ===
+  // Thay thế vòng lặp tuyến tính bằng thuật toán tìm kiếm nhị phân (Binary Search).
+  // Thuật toán này sẽ tìm ra chất lượng tối ưu chỉ trong vài bước, nhanh hơn đáng kể.
+  let lowerBound = 0;
+  let upperBound = 1;
+  let bestBlob = null;
+  let bestQuality = 0;
+  const iterations = 7; // 7 lần lặp là đủ để đạt độ chính xác cao
+
+  for (let i = 0; i < iterations; i++) {
+    const quality = (lowerBound + upperBound) / 2;
     const blob = await canvas.convertToBlob({ type: "image/webp", quality });
-    if (blob.size <= finalTargetKB * 1024) {
+
+    if (blob.size > finalTargetBytes) {
+      // File quá lớn -> giảm chất lượng tối đa -> di chuyển cận trên
+      upperBound = quality;
+    } else {
+      // File đạt yêu cầu -> lưu lại kết quả và thử chất lượng cao hơn -> di chuyển cận dưới
       bestBlob = blob;
       bestQuality = quality;
-      break;
+      lowerBound = quality;
     }
-    bestBlob = blob;
-    bestQuality = quality;
   }
+
+  // Nếu ngay cả chất lượng 0 vẫn lớn hơn mục tiêu, trả về blob cuối cùng đã tạo
+  if (!bestBlob) {
+    bestBlob = await canvas.convertToBlob({ type: "image/webp", quality: 0 });
+    bestQuality = 0;
+  }
+  // =================================================
+
   onProgress(
     `Hoàn tất cấu hình ${profile.name} (${(bestBlob.size / 1024).toFixed(0)}KB)`
   );
@@ -108,11 +129,10 @@ async function compressProfile(
   };
 }
 
-// --- BỘ ĐIỀU KHIỂN CHÍNH ---
+// --- BỘ ĐIỀU KHIỂN CHÍNH (Không thay đổi) ---
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // === CẬP NHẬT KÍCH THƯỚC VÀ TARGETS MỚI TẠI ĐÂY ===
     const profiles = {
       TV: {
         name: "TV",
