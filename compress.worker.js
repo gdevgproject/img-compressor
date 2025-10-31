@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V9.0 - Hỗ trợ 4 Cấu hình t, s, m, l)
+// compress.worker.js (PHIÊN BẢN V10.0 FINAL - Tăng cường Chất lượng Thị giác)
 
 // --- CÁC HÀM TIỆN ÍCH (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
@@ -57,7 +57,6 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // === CẬP NHẬT: Định nghĩa 4 cấu hình mới (t, s, m, l) ===
     const profiles = {
       l: {
         name: "l",
@@ -123,7 +122,7 @@ self.onmessage = async function (event) {
     });
     const vitals = await analyzeImageVitals(imageBitmap);
 
-    // BƯỚC 2: XÁC ĐỊNH CÁC PHIÊN BẢN CẦN TẠO (Logic thác nước 4 cấp)
+    // BƯỚC 2: XÁC ĐỊNH CÁC PHIÊN BẢN CẦN TẠO
     const originalWidth = imageBitmap.width;
     let profilesToGenerate = [];
     if (originalWidth > profiles.m.maxDimension) {
@@ -135,7 +134,6 @@ self.onmessage = async function (event) {
     } else {
       profilesToGenerate = [profiles.t];
     }
-    // Sắp xếp từ lớn đến nhỏ để tái sử dụng pixel data hiệu quả
     profilesToGenerate.sort((a, b) => b.maxDimension - a.maxDimension);
 
     self.postMessage({
@@ -144,7 +142,7 @@ self.onmessage = async function (event) {
       message: `Chuẩn bị tạo ${profilesToGenerate.length} phiên bản...`,
     });
 
-    // BƯỚC 3: TẠO CÁC CANVAS ĐÃ RESIZE (Tái sử dụng và song song hóa)
+    // BƯỚC 3: TẠO CÁC CANVAS ĐÃ RESIZE
     const resizedCanvases = {};
     let lastSource = imageBitmap;
     for (const profile of profilesToGenerate) {
@@ -201,12 +199,25 @@ self.onmessage = async function (event) {
         inputType.includes("jpeg") ||
         inputType.includes("heic") ||
         inputType.includes("jpg");
+
+      // === BỘ LỌC NÂNG CAO V10.0 ===
+      // 1. Khử nhiễu cho ảnh chụp phức tạp (như cũ)
       if ((category === "standard" || category === "complex") && isPhotoType) {
         ctx.filter = "blur(0.4px)";
         ctx.drawImage(canvas, 0, 0);
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
+
+      // 2. Tăng cường chất lượng thị giác (kỹ thuật mới)
+      // Áp dụng cho mọi ảnh trừ những ảnh siêu đơn giản (logo/icon)
+      if (category !== "minimal" && category !== "vector") {
+        ctx.filter = "contrast(1.03) saturate(1.03)";
+        ctx.drawImage(canvas, 0, 0);
+        ctx.filter = "none";
+      }
+
+      // Nén
       const { blob, quality } = await compressAndEncode(
         canvas,
         finalTargetBytes
@@ -222,7 +233,6 @@ self.onmessage = async function (event) {
     const results = await Promise.all(compressionPromises);
 
     // BƯỚC 5: GỬI KẾT QUẢ CUỐI CÙNG
-    // === CẬP NHẬT: Lấy bản "m" làm preview mặc định ===
     const previewResult =
       results.find((r) => r.name === "m") ||
       results.find((r) => r.name === "s") ||
@@ -239,7 +249,7 @@ self.onmessage = async function (event) {
       originalSize: file.size,
       compressedSize: previewResult.blob.size,
       compressedMime: "image/webp",
-      allProfiles: results.sort((a, b) => b.width - a.width), // Sắp xếp lại kết quả cho UI
+      allProfiles: results.sort((a, b) => b.width - a.width),
     });
   } catch (error) {
     self.postMessage({
