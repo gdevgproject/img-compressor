@@ -1,12 +1,12 @@
-// compress.worker.js (PHIÊN BẢN V12.1 FINAL - Bổ sung Ghi nhật ký Phân tích)
+// compress.worker.js (PHIÊN BẢN V14.0 FINAL - Phân loại Tinh chỉnh & Ngân sách Tối ưu)
 
-// --- BỘ NÃO PHÂN TÍCH V12.0 (Không thay đổi) ---
+// --- BỘ NÃO PHÂN TÍCH (Không thay đổi thuật toán, chỉ dùng kết quả) ---
 function sobelOperator(x, y, width, data) {
   const at = (x, y) => (y * width + x) * 4;
   const p = [-1, 0, 1, -2, 0, 2, -1, 0, 1].map((_, i) => {
-    const dx = (i % 3) - 1;
-    const dy = Math.floor(i / 3) - 1;
-    const idx = at(x + dx, y + dy);
+    const dx = (i % 3) - 1,
+      dy = Math.floor(i / 3) - 1,
+      idx = at(x + dx, y + dy);
     return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
   });
   const gx = -p[0] - 2 * p[3] - p[6] + p[2] + 2 * p[5] + p[8];
@@ -18,11 +18,12 @@ async function analyzeImageVitals(imageBitmap) {
   const mainCanvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
   const mainCtx = mainCanvas.getContext("2d");
   mainCtx.drawImage(imageBitmap, 0, 0);
-  let maxEdgeDensity = 0;
-  let avgUniqueColors = 0;
+  let maxEdgeDensity = 0,
+    avgUniqueColors = 0,
+    totalFlatRegions = 0;
   let isMostlyGrayscale = true;
-  const regions = 9;
-  const sampleSize = 33;
+  const regions = 9,
+    sampleSize = 33;
   for (let i = 0; i < regions; i++) {
     const regionX = Math.floor(i % 3) * Math.floor(imageBitmap.width / 3);
     const regionY = Math.floor(i / 3) * Math.floor(imageBitmap.height / 3);
@@ -34,32 +35,44 @@ async function analyzeImageVitals(imageBitmap) {
     );
     const data = imageData.data;
     const colors = new Set();
-    let grayscalePixels = 0;
-    let totalEdgeMagnitude = 0;
+    let grayscalePixels = 0,
+      totalEdgeMagnitude = 0,
+      mean = 0,
+      stdDev = 0;
     for (let y = 1; y < sampleSize - 1; y++) {
       for (let x = 1; x < sampleSize - 1; x++) {
         const idx = (y * sampleSize + x) * 4;
         const r = data[idx],
           g = data[idx + 1],
           b = data[idx + 2];
+        const gray = (r + g + b) / 3;
+        mean += gray;
         colors.add(`${r},${g},${b}`);
         if (Math.abs(r - g) < 20 && Math.abs(r - b) < 20) grayscalePixels++;
         totalEdgeMagnitude += sobelOperator(x, y, sampleSize, data);
       }
     }
+    mean /= sampleSize * sampleSize;
+    for (let i = 0; i < data.length; i += 4) {
+      stdDev += Math.pow((data[i] + data[i + 1] + data[i + 2]) / 3 - mean, 2);
+    }
+    stdDev = Math.sqrt(stdDev / (sampleSize * sampleSize));
+    if (stdDev < 10) totalFlatRegions++;
     const currentEdgeDensity = totalEdgeMagnitude / (sampleSize * sampleSize);
-    if (currentEdgeDensity > maxEdgeDensity) {
+    if (currentEdgeDensity > maxEdgeDensity)
       maxEdgeDensity = currentEdgeDensity;
-    }
     avgUniqueColors += colors.size;
-    if (grayscalePixels / (sampleSize * sampleSize) < 0.95) {
+    if (grayscalePixels / (sampleSize * sampleSize) < 0.95)
       isMostlyGrayscale = false;
-    }
   }
+  const flatnessRatio = totalFlatRegions / regions;
+  const finalUniqueColors = Math.round(avgUniqueColors / regions);
   return {
-    uniqueColors: Math.round(avgUniqueColors / regions),
+    uniqueColors: finalUniqueColors,
     isGrayscale: isMostlyGrayscale,
     edgeDensity: maxEdgeDensity,
+    flatnessRatio: flatnessRatio,
+    colorSparsity: maxEdgeDensity / (finalUniqueColors + 1),
   };
 }
 
@@ -94,53 +107,58 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
+    // === BẢNG TARGET V14.0 (COMPRESSION MATRIX < 100KB) ===
     const profiles = {
       l: {
         name: "l",
         maxDimension: 1080,
         targets: {
-          minimal: 12,
-          vector: 18,
-          graphic: 25,
-          art: 40,
-          standard: 55,
-          complex: 65,
+          ICON: 8,
+          UI: 22,
+          ILLUSTRATION: 18,
+          ART: 27,
+          PHOTO: 38,
+          PHOTO_COMPLEX: 45,
+          TEXTURE: 48,
         },
       },
       m: {
         name: "m",
         maxDimension: 720,
         targets: {
-          minimal: 3,
-          vector: 5,
-          graphic: 10,
-          art: 18,
-          standard: 25,
-          complex: 35,
+          ICON: 4,
+          UI: 14,
+          ILLUSTRATION: 10,
+          ART: 27,
+          PHOTO: 25,
+          PHOTO_COMPLEX: 25,
+          TEXTURE: 27,
         },
       },
       s: {
         name: "s",
         maxDimension: 480,
         targets: {
-          minimal: 2,
-          vector: 4,
-          graphic: 8,
-          art: 12,
-          standard: 18,
-          complex: 25,
+          ICON: 2.5,
+          UI: 8,
+          ILLUSTRATION: 6,
+          ART: 12,
+          PHOTO: 15,
+          PHOTO_COMPLEX: 16,
+          TEXTURE: 17,
         },
       },
       t: {
         name: "t",
         maxDimension: 120,
         targets: {
-          minimal: 0.5,
-          vector: 1,
-          graphic: 1.5,
-          art: 2,
-          standard: 3,
-          complex: 4,
+          ICON: 0.8,
+          UI: 2,
+          ILLUSTRATION: 1.5,
+          ART: 2.5,
+          PHOTO: 2.8,
+          PHOTO_COMPLEX: 3,
+          TEXTURE: 3,
         },
       },
     };
@@ -155,71 +173,64 @@ self.onmessage = async function (event) {
     self.postMessage({
       status: "progress",
       percent: 25,
-      message: "Phân tích cấu trúc nâng cao...",
+      message: "Phân tích chuyên sâu...",
     });
     const vitals = await analyzeImageVitals(imageBitmap);
 
-    // === BƯỚC MỚI: GHI NHẬT KÝ PHÂN TÍCH RA CONSOLE ===
+    // === LOGIC PHÂN LOẠI V14.0 (7 CẤP ĐỘ) ===
+    let category = "TEXTURE"; // Mặc định
+    if (vitals.isGrayscale && vitals.flatnessRatio > 0.8) category = "ICON";
+    else if (vitals.flatnessRatio > 0.7 && vitals.uniqueColors < 128)
+      category = "ICON";
+    else if (vitals.flatnessRatio > 0.4 && vitals.edgeDensity < 30)
+      category = "UI";
+    else if (vitals.colorSparsity < 0.025 && vitals.edgeDensity < 45)
+      category = "ILLUSTRATION";
+    else if (vitals.edgeDensity < 55) category = "ART";
+    else if (vitals.edgeDensity < 70) category = "PHOTO";
+    else if (vitals.edgeDensity < 85) category = "PHOTO_COMPLEX";
+
+    // === GHI NHẬT KÝ PHÂN TÍCH V14.0 ===
     function logAnalysis() {
-      let edgeDescription;
-      if (vitals.edgeDensity < 15)
-        edgeDescription =
-          "-> Rất thấp: Ảnh có nhiều vùng phẳng, khả năng là icon, logo.";
-      else if (vitals.edgeDensity < 30)
-        edgeDescription =
-          "-> Thấp: Có các đường nét rõ ràng, khả năng là đồ họa UI, tranh vẽ đơn giản.";
-      else if (vitals.edgeDensity < 45)
-        edgeDescription =
-          "-> Trung bình: Có chi tiết vừa phải, khả năng là tranh vẽ nghệ thuật, ảnh chân dung.";
-      else if (vitals.edgeDensity < 60)
-        edgeDescription =
-          "-> Cao: Nhiều chi tiết nhỏ, khả năng là ảnh chụp thông thường.";
-      else
-        edgeDescription =
-          "-> Rất cao: Cực kỳ nhiều chi tiết nhiễu, khả năng là ảnh phong cảnh (lá cây, thác nước).";
-
-      let finalCategory = "complex";
-      if (vitals.isGrayscale) finalCategory = "minimal";
-      else if (vitals.edgeDensity < 15 && vitals.uniqueColors < 256)
-        finalCategory = "vector";
-      else if (vitals.edgeDensity < 30 && vitals.uniqueColors < 4096)
-        finalCategory = "graphic";
-      else if (vitals.edgeDensity < 45) finalCategory = "art";
-      else if (vitals.edgeDensity < 60) finalCategory = "standard";
-
-      console.group("---[ PHÂN TÍCH ẢNH V12.1 ]---");
-      console.log("Dữ liệu thô:", vitals);
+      console.group("---[ PHÂN TÍCH ẢNH V14.0 ]---");
+      console.log("Dữ liệu thô:", {
+        ...vitals,
+        edgeDensity: vitals.edgeDensity.toFixed(2),
+        flatnessRatio: vitals.flatnessRatio.toFixed(2),
+        colorSparsity: vitals.colorSparsity.toFixed(4),
+      });
       console.log(
         "%cGiải thích các chỉ số:",
         "color: #007bff; font-weight: bold;"
       );
       console.log(
-        `- Ảnh đen trắng (isGrayscale): ${
-          vitals.isGrayscale ? "✅ Có" : "❌ Không"
-        }`
-      );
-      console.log(
-        `- Số màu độc nhất (uniqueColors): ${vitals.uniqueColors} (Càng thấp, càng giống ảnh đồ họa/icon)`
+        `- Tỷ lệ vùng phẳng (flatnessRatio): ${vitals.flatnessRatio.toFixed(
+          2
+        )} ( > 0.7 là ICON, > 0.4 là UI )`
       );
       console.log(
         `- Mật độ biên cạnh (edgeDensity): ${vitals.edgeDensity.toFixed(
           2
-        )} ${edgeDescription}`
+        )} ( < 55 là ART, < 70 là PHOTO, < 85 là PHOTO_COMPLEX )`
+      );
+      console.log(
+        `- Độ thưa thớt màu (colorSparsity): ${vitals.colorSparsity.toFixed(
+          4
+        )} ( < 0.025 là ILLUSTRATION/Anime )`
       );
       console.log(
         "%c=> KẾT LUẬN PHÂN LOẠI:",
         "color: #28a745; font-weight: bold;"
       );
       console.log(
-        `Thuật toán xếp ảnh này vào loại: %c${finalCategory.toUpperCase()}`,
+        `Thuật toán xếp ảnh này vào loại: %c${category}`,
         "background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;"
       );
       console.groupEnd();
     }
     logAnalysis();
-    // ===============================================
 
-    // BƯỚC 2: XÁC ĐỊNH CÁC PHIÊN BẢN CẦN TẠO
+    // BƯỚC 2 -> 3: XÁC ĐỊNH PHIÊN BẢN VÀ RESIZE (Không đổi)
     const originalWidth = imageBitmap.width;
     let profilesToGenerate = [];
     if (originalWidth > profiles.m.maxDimension) {
@@ -232,14 +243,11 @@ self.onmessage = async function (event) {
       profilesToGenerate = [profiles.t];
     }
     profilesToGenerate.sort((a, b) => b.maxDimension - a.maxDimension);
-
     self.postMessage({
       status: "progress",
       percent: 40,
       message: `Chuẩn bị tạo ${profilesToGenerate.length} phiên bản...`,
     });
-
-    // BƯỚC 3: TẠO CÁC CANVAS ĐÃ RESIZE
     const resizedCanvases = {};
     let lastSource = imageBitmap;
     for (const profile of profilesToGenerate) {
@@ -267,7 +275,7 @@ self.onmessage = async function (event) {
       lastSource = canvas;
     }
 
-    // BƯỚC 4: NÉN SONG SONG TẤT CẢ CÁC PHIÊN BẢN
+    // BƯỚC 4: NÉN SONG SONG
     self.postMessage({
       status: "progress",
       percent: 60,
@@ -276,26 +284,25 @@ self.onmessage = async function (event) {
     const compressionPromises = profilesToGenerate.map(async (profile) => {
       const canvas = resizedCanvases[profile.name];
       const ctx = canvas.getContext("2d");
-      let category = "complex";
-      if (vitals.isGrayscale) category = "minimal";
-      else if (vitals.edgeDensity < 15 && vitals.uniqueColors < 256)
-        category = "vector";
-      else if (vitals.edgeDensity < 30 && vitals.uniqueColors < 4096)
-        category = "graphic";
-      else if (vitals.edgeDensity < 45) category = "art";
-      else if (vitals.edgeDensity < 60) category = "standard";
       const finalTargetBytes = profile.targets[category] * 1024;
       const inputType = file.type.toLowerCase();
       const isPhotoType =
         inputType.includes("jpeg") ||
         inputType.includes("heic") ||
         inputType.includes("jpg");
-      if ((category === "standard" || category === "complex") && isPhotoType) {
+
+      // Bộ lọc tăng cường thị giác
+      if (
+        (category === "PHOTO" ||
+          category === "PHOTO_COMPLEX" ||
+          category === "TEXTURE") &&
+        isPhotoType
+      ) {
         ctx.filter = "blur(0.3px)";
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
-      if (category !== "minimal" && category !== "vector") {
+      if (category !== "ICON") {
         let contrast = 1.03,
           saturate = 1.03;
         if (profile.name === "s" || profile.name === "t") {
@@ -306,6 +313,7 @@ self.onmessage = async function (event) {
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
+
       const { blob, quality } = await compressAndEncode(
         canvas,
         finalTargetBytes
@@ -320,7 +328,7 @@ self.onmessage = async function (event) {
     });
     const results = await Promise.all(compressionPromises);
 
-    // BƯỚC 5: GỬI KẾT QUẢ CUỐI CÙNG
+    // BƯỚC 5: GỬI KẾT QUẢ
     const previewResult =
       results.find((r) => r.name === "m") ||
       results.find((r) => r.name === "s") ||
