@@ -1,18 +1,12 @@
-// main.js (PHIÊN BẢN V16.0 - Hệ thống 2 Cấu hình Tinh gọn)
+// main.js (PHIÊN BẢN V17.1 - Nâng cấp Zoom thông minh)
 document.addEventListener("DOMContentLoaded", () => {
-  if (window.location.protocol === "file:") {
-    const warningBox = document.getElementById("warningBox");
-    warningBox.style.display = "block";
-    warningBox.textContent =
-      "LỖI: Trang này phải được chạy trên một Server để Web Worker hoạt động.";
-  }
-
   // --- Khai báo biến DOM ---
   const imageInput = document.getElementById("imageInput");
   const uploadArea = document.getElementById("upload-area");
   const progressBar = document.getElementById("progressBar");
   const infoMessage = document.getElementById("infoMessage");
   const resultsArea = document.getElementById("results-area");
+  const originalInfoTitle = document.getElementById("original-info-title");
   const originalInfo = document.getElementById("originalInfo");
   const resetBtn = document.getElementById("resetBtn");
   const generatedVersionsList = document.getElementById(
@@ -20,47 +14,233 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const copyResultsBtn = document.getElementById("copyResultsBtn");
   const previewControls = document.querySelector(".preview-controls");
-  const previewArea = document.getElementById("preview-area");
-  const previewFrame = document.getElementById("preview-frame");
   const previewImage = document.getElementById("previewImage");
   const previewInfo = document.getElementById("previewInfo");
   const summaryBox = document.getElementById("summaryBox");
   const summaryInfo = document.getElementById("summaryInfo");
+
+  // DOM cho trình crop
+  const cropperModal = document.getElementById("cropper-modal");
+  const cropperCanvas = document.getElementById("cropper-canvas");
+  const cropConfirmBtn = document.getElementById("crop-confirm-btn");
+  const cropCancelBtn = document.getElementById("crop-cancel-btn");
+  const cropperCtx = cropperCanvas.getContext("2d");
 
   let originalFileData = {},
     generatedProfiles = [],
     blobUrls = [];
   const compressWorker = new Worker("compress.worker.js");
 
-  // --- Logic điều khiển Preview (Đã loại bỏ 'l') ---
-  previewControls.addEventListener("click", (e) => {
-    if (!e.target.matches(".preview-btn:not(.disabled)")) return;
-    previewControls
-      .querySelectorAll(".preview-btn")
-      .forEach((btn) => btn.classList.remove("active"));
-    e.target.classList.add("active");
-    const device = e.target.dataset.device;
-    const targetProfile = generatedProfiles.find((p) => p.name === device);
-    if (!targetProfile) return;
+  // --- Logic Trình Crop ---
+  const ZOOM_SENSITIVITY = 1.1; // Tăng/giảm giá trị này để điều chỉnh độ nhạy zoom
+  let cropState = {
+    image: null,
+    scale: 1,
+    offset: { x: 0, y: 0 },
+    isDragging: false,
+    dragStart: { x: 0, y: 0 },
+    cropBox: { x: 0, y: 0, width: 0, height: 0 },
+  };
 
-    updatePreviewImage(targetProfile.blobUrl);
-    const frameDeviceMap = { m: "web", s: "mobile" };
-    previewFrame.className = `device-${frameDeviceMap[device] || "web"}`;
-    updatePreviewInfo(device);
-  });
-
-  function updatePreviewImage(url) {
-    previewImage.src = url;
-  }
-
-  function updatePreviewInfo(device) {
-    const infoTexts = {
-      m: "Phiên bản Medium (720px) cho web/laptop và điện thoại.",
-      s: "Phiên bản Small (360px) cho preview nhỏ, 1/3 màn hình điện thoại.",
+  function initCropper(imageFile) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        cropState.image = img;
+        setupCropperCanvas();
+        cropperModal.classList.add("visible");
+        requestAnimationFrame(drawCropper);
+      };
+      img.src = e.target.result;
     };
-    previewInfo.textContent = infoTexts[device];
+    reader.readAsDataURL(imageFile);
   }
 
+  function setupCropperCanvas() {
+    const containerWidth = cropperCanvas.parentElement.clientWidth;
+    const canvasWidth = Math.min(containerWidth, 800);
+    const canvasHeight = canvasWidth * 0.75; // Tỷ lệ 4:3 cho canvas
+
+    cropperCanvas.width = canvasWidth;
+    cropperCanvas.height = canvasHeight;
+
+    // Khung crop chiếm 90% canvas để có lề
+    cropState.cropBox.width = canvasWidth * 0.9;
+    cropState.cropBox.height = cropState.cropBox.width * (3 / 4);
+    cropState.cropBox.x = (canvasWidth - cropState.cropBox.width) / 2;
+    cropState.cropBox.y = (canvasHeight - cropState.cropBox.height) / 2;
+
+    // Tính toán scale và vị trí ban đầu để ảnh fill khung crop
+    const imgAspectRatio = cropState.image.width / cropState.image.height;
+    const boxAspectRatio = 4 / 3;
+
+    if (imgAspectRatio > boxAspectRatio) {
+      // Ảnh rộng hơn khung
+      cropState.scale = cropState.cropBox.height / cropState.image.height;
+    } else {
+      // Ảnh cao hơn hoặc bằng khung
+      cropState.scale = cropState.cropBox.width / cropState.image.width;
+    }
+
+    // Căn giữa ảnh
+    cropState.offset.x =
+      (canvasWidth - cropState.image.width * cropState.scale) / 2;
+    cropState.offset.y =
+      (canvasHeight - cropState.image.height * cropState.scale) / 2;
+  }
+
+  function drawCropper() {
+    cropperCtx.clearRect(0, 0, cropperCanvas.width, cropperCanvas.height);
+
+    // Vẽ ảnh
+    cropperCtx.drawImage(
+      cropState.image,
+      cropState.offset.x,
+      cropState.offset.y,
+      cropState.image.width * cropState.scale,
+      cropState.image.height * cropState.scale
+    );
+
+    // Vẽ lớp phủ mờ bên ngoài
+    cropperCtx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    cropperCtx.beginPath();
+    cropperCtx.rect(0, 0, cropperCanvas.width, cropperCanvas.height);
+    cropperCtx.rect(
+      cropState.cropBox.x,
+      cropState.cropBox.y,
+      cropState.cropBox.width,
+      cropState.cropBox.height
+    );
+    cropperCtx.fill("evenodd");
+  }
+
+  function getEventPosition(event) {
+    const rect = cropperCanvas.getBoundingClientRect();
+    const touch = event.touches ? event.touches[0] : event;
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    };
+  }
+
+  function onPointerDown(e) {
+    e.preventDefault();
+    cropState.isDragging = true;
+    cropState.dragStart = getEventPosition(e);
+  }
+
+  function onPointerMove(e) {
+    if (!cropState.isDragging) return;
+    e.preventDefault();
+    const pos = getEventPosition(e);
+    const dx = pos.x - cropState.dragStart.x;
+    const dy = pos.y - cropState.dragStart.y;
+    cropState.offset.x += dx;
+    cropState.offset.y += dy;
+    cropState.dragStart = pos;
+    requestAnimationFrame(drawCropper);
+  }
+
+  function onPointerUp() {
+    if (!cropState.isDragging) return;
+    cropState.isDragging = false;
+    // Giới hạn di chuyển để ảnh không ra khỏi khung
+    const { image, offset, scale, cropBox } = cropState;
+    const scaledWidth = image.width * scale;
+    const scaledHeight = image.height * scale;
+    offset.x = Math.min(
+      cropBox.x,
+      Math.max(offset.x, cropBox.x + cropBox.width - scaledWidth)
+    );
+    offset.y = Math.min(
+      cropBox.y,
+      Math.max(offset.y, cropBox.y + cropBox.height - scaledHeight)
+    );
+    requestAnimationFrame(drawCropper);
+  }
+
+  // === HÀM ZOOM ĐÃ ĐƯỢC NÂNG CẤP ===
+  function onWheel(e) {
+    e.preventDefault();
+    const pos = getEventPosition(e);
+
+    // Xác định hướng và hệ số zoom
+    const delta = e.deltaY > 0 ? 1 / ZOOM_SENSITIVITY : ZOOM_SENSITIVITY;
+    const newScale = cropState.scale * delta;
+
+    // Giới hạn zoom out: không cho phép ảnh nhỏ hơn khung crop
+    const minScale = Math.max(
+      cropState.cropBox.width / cropState.image.width,
+      cropState.cropBox.height / cropState.image.height
+    );
+    if (newScale < minScale) {
+      return; // Không zoom nhỏ hơn nữa
+    }
+
+    // Logic "Zoom thông minh": tính toán lại offset để điểm dưới con trỏ không đổi vị trí
+    cropState.offset.x = pos.x - (pos.x - cropState.offset.x) * delta;
+    cropState.offset.y = pos.y - (pos.y - cropState.offset.y) * delta;
+
+    cropState.scale = newScale;
+
+    // Gọi lại onPointerUp để kiểm tra và giới hạn lại vị trí ảnh sau khi zoom
+    onPointerUp();
+    requestAnimationFrame(drawCropper);
+  }
+
+  cropperCanvas.addEventListener("mousedown", onPointerDown);
+  cropperCanvas.addEventListener("mousemove", onPointerMove);
+  window.addEventListener("mouseup", onPointerUp);
+  cropperCanvas.addEventListener("mouseleave", onPointerUp);
+  cropperCanvas.addEventListener("wheel", onWheel, { passive: false });
+  // Touch events
+  cropperCanvas.addEventListener("touchstart", onPointerDown);
+  cropperCanvas.addEventListener("touchmove", onPointerMove);
+  window.addEventListener("touchend", onPointerUp);
+
+  async function handleCropConfirm() {
+    const { image, scale, offset, cropBox } = cropState;
+
+    // Tính toán vùng crop trên ảnh gốc
+    const sourceX = (cropBox.x - offset.x) / scale;
+    const sourceY = (cropBox.y - offset.y) / scale;
+    const sourceWidth = cropBox.width / scale;
+    const sourceHeight = cropBox.height / scale;
+
+    const finalCanvas = new OffscreenCanvas(sourceWidth, sourceHeight);
+    const finalCtx = finalCanvas.getContext("2d");
+
+    finalCtx.drawImage(
+      image,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight, // Vùng cắt từ ảnh gốc
+      0,
+      0,
+      sourceWidth,
+      sourceHeight // Vẽ vào canvas mới
+    );
+
+    const blob = await finalCanvas.convertToBlob({ type: "image/png" });
+    const croppedFile = new File([blob], "cropped_image.png", {
+      type: "image/png",
+    });
+
+    cropperModal.classList.remove("visible");
+    startCompression(croppedFile);
+  }
+
+  function handleCropCancel() {
+    cropperModal.classList.remove("visible");
+    resetUI();
+  }
+
+  cropConfirmBtn.addEventListener("click", handleCropConfirm);
+  cropCancelBtn.addEventListener("click", handleCropCancel);
+
+  // --- Logic Chính ---
   function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -89,8 +269,11 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadArea.style.display = "block";
     summaryBox.style.display = "none";
     blobUrls.forEach((url) => URL.revokeObjectURL(url));
-    (blobUrls = []), (originalFileData = {}), (generatedProfiles = []);
-    (imageInput.value = ""), (generatedVersionsList.innerHTML = "");
+    blobUrls = [];
+    originalFileData = {};
+    generatedProfiles = [];
+    imageInput.value = "";
+    generatedVersionsList.innerHTML = "";
     previewControls.querySelectorAll(".preview-btn").forEach((btn) => {
       btn.classList.add("disabled");
       btn.classList.remove("active");
@@ -98,19 +281,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleImageUpload(file) {
-    if (!file || !file.type.startsWith("image/")) {
-      return;
-    }
-    if (file.type === "image/gif") {
+    if (!file || !file.type.startsWith("image/") || file.type.includes("svg")) {
+      alert("Vui lòng chọn một file ảnh hợp lệ (JPG, PNG, WebP, BMP, AVIF).");
       return;
     }
     resetUI();
+    initCropper(file);
+  }
+
+  function startCompression(file) {
     uploadArea.style.display = "none";
-    updateProgress(5, "Đang chuẩn bị...");
-    const originalURL = URL.createObjectURL(file);
-    blobUrls.push(originalURL);
+    updateProgress(5, "Đang chuẩn bị nén...");
+
     const img = new Image();
-    img.src = originalURL;
+    const objectURL = URL.createObjectURL(file);
+    blobUrls.push(objectURL);
+
     img.onload = () => {
       originalFileData = {
         type: file.type,
@@ -118,9 +304,10 @@ document.addEventListener("DOMContentLoaded", () => {
         height: img.naturalHeight,
         size: file.size,
       };
+      originalInfoTitle.textContent = "Ảnh đã Crop (4:3)";
       originalInfo.innerHTML = `<li><span>Định dạng:</span> <span>${
         originalFileData.type
-      }</span></li><li><span>Kích thước:</span> <span>${
+      } (trước khi nén)</span></li><li><span>Kích thước:</span> <span>${
         originalFileData.width
       }x${
         originalFileData.height
@@ -128,7 +315,9 @@ document.addEventListener("DOMContentLoaded", () => {
         originalFileData.size
       )}</span></li>`;
       compressWorker.postMessage({ file: file });
+      URL.revokeObjectURL(objectURL); // Giải phóng sau khi đọc xong
     };
+    img.src = objectURL;
   }
 
   // --- Lắng nghe kết quả từ Worker ---
@@ -192,12 +381,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // --- Preview & Actions ---
+  previewControls.addEventListener("click", (e) => {
+    if (!e.target.matches(".preview-btn:not(.disabled)")) return;
+    previewControls
+      .querySelectorAll(".preview-btn")
+      .forEach((btn) => btn.classList.remove("active"));
+    e.target.classList.add("active");
+    const device = e.target.dataset.device;
+    const targetProfile = generatedProfiles.find((p) => p.name === device);
+    if (!targetProfile) return;
+
+    previewImage.src = targetProfile.blobUrl;
+    const frameDeviceMap = { m: "web", s: "mobile" };
+    document.getElementById("preview-frame").className = `device-${
+      frameDeviceMap[device] || "web"
+    }`;
+    previewInfo.textContent = {
+      m: "Phiên bản Medium (864px) cho web/laptop và điện thoại.",
+      s: "Phiên bản Small (420px) cho preview nhỏ, 1/3 màn hình điện thoại.",
+    }[device];
+  });
+
   function handleCopyResults() {
     let report = "--- KẾT QUẢ NÉN ẢNH ---\n\n";
-    report += "ẢNH GỐC:\n";
-    report += `- Định dạng: ${originalFileData.type}\n`;
+    report += "ẢNH SAU KHI CROP (TRƯỚC KHI NÉN):\n";
     report += `- Kích thước: ${originalFileData.width}x${originalFileData.height} px\n`;
-    report += `- Dung lượng: ${formatBytes(originalFileData.size)}\n\n`;
+    report += `- Dung lượng tạm thời: ${formatBytes(
+      originalFileData.size
+    )}\n\n`;
     report += "CÁC PHIÊN BẢN ĐÃ TẠO:\n";
     generatedProfiles.forEach((profile) => {
       report += `\n* PHIÊN BẢN ${profile.name.toUpperCase()}:\n`;
@@ -216,6 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- Event Listeners ban đầu ---
   imageInput.addEventListener("change", (event) =>
     handleImageUpload(event.target.files[0])
   );

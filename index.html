@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ultimate Image Compressor</title>
+    <title>Ultimate Image Compressor & Cropper</title>
     <style>
       :root {
         --primary-color: #007bff;
@@ -55,19 +55,31 @@
         border: 3px dashed var(--border-color);
         border-radius: var(--border-radius);
         padding: 2rem;
-        text-align: center;
         cursor: pointer;
         transition: border-color 0.3s, background-color 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      #upload-area:hover,
-      #upload-area.dragover {
-        border-color: var(--primary-color);
-        background-color: #f8f9fa;
+      /* Sửa lỗi hiển thị văn bản gây lệch border */
+      #upload-area .upload-content {
+        text-align: center;
       }
       #upload-area p {
         margin: 0;
         font-size: 1.2rem;
         color: var(--dark-gray);
+      }
+      #upload-area span {
+        font-size: 0.9rem;
+        color: #6c757d;
+        display: block;
+        margin-top: 0.5rem;
+      }
+      #upload-area:hover,
+      #upload-area.dragover {
+        border-color: var(--primary-color);
+        background-color: #f8f9fa;
       }
       #imageInput {
         display: none;
@@ -144,6 +156,10 @@
         font-weight: bold;
         text-decoration: none;
         display: inline-block;
+        transition: background-color 0.2s;
+      }
+      .btn:hover {
+        opacity: 0.9;
       }
       #resetBtn {
         background-color: var(--dark-gray);
@@ -306,37 +322,112 @@
         object-fit: contain;
         border-radius: 28px;
       }
+
+      /* === CSS CHO TRÌNH CROP ẢNH === */
+      #cropper-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.75);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+      }
+      #cropper-modal.visible {
+        opacity: 1;
+        visibility: visible;
+      }
+      .cropper-container {
+        background-color: var(--background-color);
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        width: 90%;
+        max-width: 800px;
+      }
+      .cropper-header {
+        text-align: center;
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        color: var(--text-color);
+      }
+      #cropper-canvas {
+        cursor: grab;
+        max-width: 100%;
+        border-radius: 8px;
+        background-color: #222;
+      }
+      #cropper-canvas:active {
+        cursor: grabbing;
+      }
+      .cropper-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 1.5rem;
+      }
+      #crop-cancel-btn {
+        background-color: var(--dark-gray);
+        color: white;
+      }
+      #crop-confirm-btn {
+        background-color: var(--success-color);
+        color: white;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <header>
-        <h2>🚀 Ultimate Image Compressor</h2>
-        <p class="subtitle">Nén Đa cấu hình & Xem trước Thông minh</p>
+        <h2>🚀 Ultimate Image Compressor & Cropper</h2>
+        <p class="subtitle">
+          Cắt ảnh 4:3, Nén Đa cấu hình & Xem trước Thông minh
+        </p>
       </header>
-      <div class="warning" id="warningBox" style="display: none"></div>
+
       <label for="imageInput" id="upload-area">
-        <p>Kéo và thả ảnh vào đây, hoặc nhấn để chọn file</p>
-        <span style="font-size: 0.9rem; color: #6c757d"
-          >Hỗ trợ: JPG, PNG, WebP, BMP, AVIF, SVG</span
-        >
+        <div class="upload-content">
+          <p>Kéo và thả ảnh vào đây, hoặc nhấn để chọn file</p>
+          <span>Hỗ trợ: JPG, PNG, WebP, BMP, AVIF</span>
+        </div>
       </label>
       <input
         type="file"
         id="imageInput"
-        accept="image/jpeg, image/png, image/webp, image/bmp, image/avif, image/svg+xml"
+        accept="image/jpeg, image/png, image/webp, image/bmp, image/avif"
       />
+
+      <!-- === GIAO DIỆN CROP MỚI === -->
+      <div id="cropper-modal">
+        <div class="cropper-container">
+          <div class="cropper-header">Cắt ảnh theo tỷ lệ 4:3</div>
+          <canvas id="cropper-canvas"></canvas>
+          <div class="cropper-actions">
+            <button id="crop-cancel-btn" class="btn">Hủy bỏ</button>
+            <button id="crop-confirm-btn" class="btn">Hoàn tất & Nén</button>
+          </div>
+        </div>
+      </div>
+
       <div class="progress-container">
         <div class="progress-bar" id="progressBar">Sẵn sàng</div>
       </div>
       <div id="infoMessage"></div>
+
       <div id="results-area">
         <div class="main-actions">
           <button id="copyResultsBtn" class="btn">📋 Sao chép Kết quả</button>
           <button id="resetBtn" class="btn">Chọn ảnh khác</button>
         </div>
         <div class="info-box">
-          <h3>Ảnh Gốc</h3>
+          <h3 id="original-info-title">Ảnh Gốc</h3>
           <ul id="originalInfo"></ul>
         </div>
         <div class="info-box" id="summaryBox" style="display: none">
@@ -349,7 +440,6 @@
         </div>
         <div id="preview-section">
           <h3>Xem trước trên các thiết bị</h3>
-          <!-- === CẬP NHẬT: Chỉ còn 2 nút preview === -->
           <div class="preview-controls">
             <button class="preview-btn" data-device="m">💻 Medium (m)</button>
             <button class="preview-btn" data-device="s">📱 Small (s)</button>

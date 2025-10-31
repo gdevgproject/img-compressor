@@ -1,32 +1,22 @@
-// compress.worker.js (PHIÊN BẢN V18.0 FINAL - Hệ thống 3 Loại Tinh gọn)
+// compress.worker.js (PHIÊN BẢN V19.0 FINAL - Bộ não Nhận thức Đa chiều & Target Động)
 
-// --- BỘ NÃO PHÂN TÍCH (Không thay đổi thuật toán) ---
-function sobelOperator(x, y, width, data) {
-  const at = (x, y) => (y * width + x) * 4;
-  const p = [-1, 0, 1, -2, 0, 2, -1, 0, 1].map((_, i) => {
-    const dx = (i % 3) - 1,
-      dy = Math.floor(i / 3) - 1,
-      idx = at(x + dx, y + dy);
-    return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-  });
-  const gx = -p[0] - 2 * p[3] - p[6] + p[2] + 2 * p[5] + p[8];
-  const gy = -p[0] - 2 * p[1] - p[2] + p[6] + 2 * p[7] + p[8];
-  return Math.sqrt(gx * gx + gy * gy);
-}
-
+// --- BỘ NÃO PHÂN TÍCH V19.0 ---
 async function analyzeImageVitals(imageBitmap) {
   const mainCanvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
   const mainCtx = mainCanvas.getContext("2d");
   mainCtx.drawImage(imageBitmap, 0, 0);
-  let maxEdgeDensity = 0,
-    avgUniqueColors = 0,
-    totalFlatRegions = 0;
-  let isMostlyGrayscale = true;
+
+  let maxStructuralComplexity = 0,
+    maxTextureScore = 0,
+    totalFlatRegions = 0,
+    totalColorEntropy = 0;
   const regions = 9,
-    sampleSize = 33;
+    sampleSize = 40; // Tăng kích thước mẫu để phân tích chính xác hơn
+
   for (let i = 0; i < regions; i++) {
     const regionX = Math.floor(i % 3) * Math.floor(imageBitmap.width / 3);
     const regionY = Math.floor(i / 3) * Math.floor(imageBitmap.height / 3);
+
     const imageData = mainCtx.getImageData(
       regionX,
       regionY,
@@ -34,45 +24,73 @@ async function analyzeImageVitals(imageBitmap) {
       sampleSize
     );
     const data = imageData.data;
-    const colors = new Set();
-    let grayscalePixels = 0,
-      totalEdgeMagnitude = 0,
+    let strongEdgeCount = 0,
+      textureVariance = 0,
       mean = 0,
       stdDev = 0;
+    const hist = new Array(256).fill(0);
+
     for (let y = 1; y < sampleSize - 1; y++) {
       for (let x = 1; x < sampleSize - 1; x++) {
         const idx = (y * sampleSize + x) * 4;
-        const r = data[idx],
-          g = data[idx + 1],
-          b = data[idx + 2];
-        const gray = (r + g + b) / 3;
+        const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
         mean += gray;
-        colors.add(`${r},${g},${b}`);
-        if (Math.abs(r - g) < 20 && Math.abs(r - b) < 20) grayscalePixels++;
-        totalEdgeMagnitude += sobelOperator(x, y, sampleSize, data);
+        hist[Math.floor(gray)]++;
+
+        // Tính Structural Complexity (đếm biên cạnh mạnh)
+        const gx = -data[idx - 4] + data[idx + 4];
+        const gy = -data[idx - sampleSize * 4] + data[idx + sampleSize * 4];
+        const magnitude = Math.sqrt(gx * gx + gy * gy);
+        if (magnitude > 50) strongEdgeCount++;
+
+        // Tính Texture Score (phương sai của Laplacian)
+        const laplacian =
+          data[idx - 4] +
+          data[idx + 4] +
+          data[idx - sampleSize * 4] +
+          data[idx + sampleSize * 4] -
+          4 * gray;
+        textureVariance += laplacian * laplacian;
       }
     }
+
     mean /= sampleSize * sampleSize;
     for (let i = 0; i < data.length; i += 4) {
       stdDev += Math.pow((data[i] + data[i + 1] + data[i + 2]) / 3 - mean, 2);
     }
     stdDev = Math.sqrt(stdDev / (sampleSize * sampleSize));
-    if (stdDev < 12) totalFlatRegions++;
-    const currentEdgeDensity = totalEdgeMagnitude / (sampleSize * sampleSize);
-    if (currentEdgeDensity > maxEdgeDensity)
-      maxEdgeDensity = currentEdgeDensity;
-    avgUniqueColors += colors.size;
-    if (grayscalePixels / (sampleSize * sampleSize) < 0.95)
-      isMostlyGrayscale = false;
+    if (stdDev < 18) totalFlatRegions++; // Nới lỏng ngưỡng "phẳng"
+
+    const structuralComplexity = strongEdgeCount / (sampleSize * sampleSize);
+    if (structuralComplexity > maxStructuralComplexity)
+      maxStructuralComplexity = structuralComplexity;
+
+    const textureScore = textureVariance / (sampleSize * sampleSize) / 1000;
+    if (textureScore > maxTextureScore) maxTextureScore = textureScore;
+
+    let entropy = 0;
+    for (const p of hist) {
+      if (p > 0)
+        entropy -=
+          (p / (sampleSize * sampleSize)) *
+          Math.log2(p / (sampleSize * sampleSize));
+    }
+    totalColorEntropy += entropy;
   }
-  const flatnessRatio = totalFlatRegions / regions;
-  const finalUniqueColors = Math.round(avgUniqueColors / regions);
+
   return {
-    uniqueColors: finalUniqueColors,
-    isGrayscale: isMostlyGrayscale,
-    edgeDensity: maxEdgeDensity,
-    flatnessRatio: flatnessRatio,
+    flatnessRatio: totalFlatRegions / regions,
+    structuralComplexity: maxStructuralComplexity,
+    textureScore: maxTextureScore,
+    colorEntropy: totalColorEntropy / regions,
   };
+}
+
+// Hàm phát hiện ảnh đã bị nén
+function detectCompressionArtifacts(vitals) {
+  // Heuristic: Nếu ảnh có cấu trúc rõ ràng (như UI) nhưng điểm texture lại cao bất thường
+  // -> có thể là do các khối vuông JPEG artifact.
+  return vitals.structuralComplexity > 0.1 && vitals.textureScore > 1.5;
 }
 
 async function compressAndEncode(canvas, targetSizeInBytes) {
@@ -106,14 +124,9 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
-    // === BẢNG TARGET V18.0 (3 Loại) ===
     const profiles = {
-      m: {
-        name: "m",
-        maxDimension: 864,
-        targets: { ICON: 5, UI: 18, ART: 29 },
-      },
-      s: { name: "s", maxDimension: 420, targets: { ICON: 2, UI: 8, ART: 12 } },
+      m: { name: "m", maxDimension: 864, baseKB: 4, maxKB: 35 },
+      s: { name: "s", maxDimension: 420, baseKB: 2, maxKB: 18 },
     };
 
     // BƯỚC 1: ĐỌC VÀ PHÂN TÍCH ẢNH GỐC
@@ -126,76 +139,109 @@ self.onmessage = async function (event) {
     self.postMessage({
       status: "progress",
       percent: 25,
-      message: "Phân tích chuyên sâu...",
+      message: "Phân tích nhận thức...",
     });
     const vitals = await analyzeImageVitals(imageBitmap);
 
-    // === LOGIC PHÂN LOẠI V18.0 (Cây quyết định 3 cấp) ===
-    let category = "ART"; // Mặc định là loại đắt nhất
-    if (
-      (vitals.isGrayscale && vitals.flatnessRatio > 0.6) ||
-      (vitals.flatnessRatio > 0.8 && vitals.uniqueColors < 64)
-    ) {
-      category = "ICON";
-    } else if (vitals.flatnessRatio > 0.5 && vitals.edgeDensity < 35) {
-      category = "UI";
+    // BƯỚC 1.5: KIỂM TRA ẢNH ĐÃ BỊ NÉN
+    const isAlreadyCompressed = detectCompressionArtifacts(vitals);
+
+    // BƯỚC 2: TÍNH TOÁN TARGET ĐỘNG
+    function calculateDynamicTarget(profile, vitals, isArtifacted) {
+      let target = profile.baseKB;
+      // Trọng số cho từng chỉ số
+      target += vitals.textureScore * 40; // Texture rất tốn kém
+      target += vitals.structuralComplexity * 80; // Cấu trúc cũng tốn kém
+      target -= vitals.flatnessRatio * profile.baseKB * 0.8; // Vùng phẳng giúp giảm size
+
+      // Nếu phát hiện artifact, hãy "nhân từ" hơn, cho thêm ngân sách
+      if (isArtifacted) {
+        target *= 1.25;
+      }
+
+      // Đảm bảo target nằm trong giới hạn min/max
+      return Math.max(profile.baseKB, Math.min(target, profile.maxKB));
     }
 
+    // Dự đoán loại ảnh chỉ để LOG, không ảnh hưởng logic
+    let predictedCategory = "PHOTO";
+    if (
+      vitals.flatnessRatio > 0.8 ||
+      (vitals.flatnessRatio > 0.6 && vitals.structuralComplexity < 0.05)
+    )
+      predictedCategory = "ICON";
+    else if (vitals.structuralComplexity > 0.08 && vitals.textureScore < 0.5)
+      predictedCategory = "UI";
+    else if (vitals.colorEntropy < 6.5 && vitals.textureScore < 1.0)
+      predictedCategory = "GRAPHIC";
+
     function logAnalysis() {
-      console.group("---[ PHÂN TÍCH ẢNH V18.0 ]---");
+      console.group("---[ PHÂN TÍCH ẢNH V19.0 ]---");
       console.log("Dữ liệu thô:", {
-        ...vitals,
-        edgeDensity: vitals.edgeDensity.toFixed(2),
         flatnessRatio: vitals.flatnessRatio.toFixed(2),
+        structuralComplexity: vitals.structuralComplexity.toFixed(3),
+        textureScore: vitals.textureScore.toFixed(2),
+        colorEntropy: vitals.colorEntropy.toFixed(2),
       });
       console.log(
         "%cGiải thích các chỉ số:",
         "color: #007bff; font-weight: bold;"
       );
       console.log(
-        `- Tỷ lệ vùng phẳng (flatnessRatio): ${vitals.flatnessRatio.toFixed(2)}`
+        `- Tỷ lệ Phẳng: ${vitals.flatnessRatio.toFixed(
+          2
+        )} (Càng cao -> càng giống ICON/UI)`
       );
       console.log(
-        `- Mật độ biên cạnh (edgeDensity): ${vitals.edgeDensity.toFixed(2)}`
+        `- Phức tạp Cấu trúc: ${vitals.structuralComplexity.toFixed(
+          3
+        )} (Càng cao -> càng nhiều nét, chữ, hình khối)`
       );
-      console.log("%cQuy tắc áp dụng:", "color: #fd7e14; font-weight: bold;");
-      if (category === "ICON")
-        console.log("-> Ảnh siêu phẳng/đơn giản -> Xếp vào ICON.");
-      else if (category === "UI")
+      console.log(
+        `- Điểm Texture: ${vitals.textureScore.toFixed(
+          2
+        )} (Càng cao -> càng giống ảnh chụp, nhiều nhiễu)`
+      );
+      console.log(
+        `- Hỗn loạn Màu: ${vitals.colorEntropy.toFixed(
+          2
+        )} (Thấp < 6.5 -> giống anime/art)`
+      );
+      if (isAlreadyCompressed)
         console.log(
-          "-> Ảnh tương đối phẳng, có cấu trúc rõ ràng -> Xếp vào UI."
+          "%cPhát hiện Artifacts: Có thể ảnh đã bị nén. Sẽ nén nhẹ tay hơn.",
+          "color: orange; font-weight: bold;"
         );
-      else if (category === "ART")
-        console.log("-> Không đủ đơn giản cho UI -> Xếp vào ART (mặc định).");
       console.log(
-        "%c=> KẾT LUẬN PHÂN LOẠI:",
-        "color: #28a745; font-weight: bold;"
-      );
-      console.log(
-        `Thuật toán xếp ảnh này vào loại: %c${category}`,
-        "background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;"
+        `=> Dự đoán loại ảnh (chỉ để tham khảo): %c${predictedCategory}`,
+        "background: #6f42c1; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;"
       );
       console.groupEnd();
     }
     logAnalysis();
 
-    // BƯỚC 2 & 3: XÁC ĐỊNH PHIÊN BẢN VÀ RESIZE (Không đổi)
+    // BƯỚC 3: XÁC ĐỊNH PHIÊN BẢN (Sửa lỗi ảnh dọc)
     const originalWidth = imageBitmap.width;
+    const originalHeight = imageBitmap.height;
     let profilesToGenerate = [];
-    if (originalWidth > profiles.s.maxDimension) {
+    if (Math.max(originalWidth, originalHeight) > profiles.s.maxDimension) {
       profilesToGenerate = [profiles.m, profiles.s];
     } else {
       profilesToGenerate = [profiles.s];
     }
     profilesToGenerate.sort((a, b) => b.maxDimension - a.maxDimension);
+
     self.postMessage({
       status: "progress",
       percent: 40,
       message: `Chuẩn bị tạo ${profilesToGenerate.length} phiên bản...`,
     });
+
+    // BƯỚC 4: RESIZE
     const resizedCanvases = {};
     let lastSource = imageBitmap;
     for (const profile of profilesToGenerate) {
+      // ... (logic resize không đổi)
       const sourceWidth = lastSource.width,
         sourceHeight = lastSource.height;
       let newWidth = sourceWidth,
@@ -220,7 +266,7 @@ self.onmessage = async function (event) {
       lastSource = canvas;
     }
 
-    // BƯỚC 4: NÉN SONG SONG
+    // BƯỚC 5: NÉN SONG SONG
     self.postMessage({
       status: "progress",
       percent: 60,
@@ -229,22 +275,22 @@ self.onmessage = async function (event) {
     const compressionPromises = profilesToGenerate.map(async (profile) => {
       const canvas = resizedCanvases[profile.name];
       const ctx = canvas.getContext("2d");
-      const finalTargetBytes = profile.targets[category] * 1024;
+
+      const finalTargetBytes =
+        calculateDynamicTarget(profile, vitals, isAlreadyCompressed) * 1024;
+
       const inputType = file.type.toLowerCase();
       const isPhotoType =
         inputType.includes("jpeg") ||
         inputType.includes("heic") ||
         inputType.includes("jpg");
 
-      // === CẬP NHẬT LOGIC BỘ LỌC ===
-      // Chỉ áp dụng blur cho ảnh loại ART và có nguồn gốc là ảnh chụp
-      if (category === "ART" && isPhotoType) {
+      if (vitals.textureScore > 0.8 && isPhotoType) {
         ctx.filter = "blur(0.3px)";
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
-      // Áp dụng tăng cường thị giác cho mọi loại trừ ICON
-      if (category !== "ICON") {
+      if (vitals.flatnessRatio < 0.8) {
         let contrast = 1.03,
           saturate = 1.03;
         if (profile.name === "s") {
@@ -270,7 +316,7 @@ self.onmessage = async function (event) {
     });
     const results = await Promise.all(compressionPromises);
 
-    // BƯỚC 5: GỬI KẾT QUẢ
+    // BƯỚC 6: GỬI KẾT QUẢ
     const previewResult = results.find((r) => r.name === "m") || results[0];
     self.postMessage({
       status: "progress",
