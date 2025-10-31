@@ -1,4 +1,4 @@
-// main.js (PHIÊN BẢN V5.2 - Đã sửa lỗi hiển thị kích thước)
+// main.js (PHIÊN BẢN V5.3 - Sửa lỗi TV Preview)
 document.addEventListener("DOMContentLoaded", () => {
   if (window.location.protocol === "file:") {
     const warningBox = document.getElementById("warningBox");
@@ -47,16 +47,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const profileName = profileMap[device];
     const targetProfile = generatedProfiles.find((p) => p.name === profileName);
 
-    if (targetProfile) {
-      updatePreviewImage(targetProfile.blobUrl);
-    }
+    if (!targetProfile) return; // Không tìm thấy profile, không làm gì cả
 
     if (tvModal) tvModal.classList.remove("visible");
 
     if (device === "tv") {
       if (!tvModal) createTvModal();
+
+      // === SỬA LỖI TV PREVIEW TẠI ĐÂY ===
+      // Luôn chủ động cập nhật nguồn ảnh của TV modal ngay trước khi hiển thị
+      tvModal.querySelector("img").src = targetProfile.blobUrl;
       tvModal.classList.add("visible");
     } else {
+      // Cập nhật cho các preview khác (Laptop, Mobile)
+      updatePreviewImage(targetProfile.blobUrl);
       const frameDeviceMap = { Laptop: "web", Mobile: "mobile" };
       previewFrame.className = `device-${frameDeviceMap[profileName] || "web"}`;
       previewArea.classList.remove("desktop-bg");
@@ -66,9 +70,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updatePreviewImage(url) {
     previewImage.src = url;
-    if (tvModal) {
-      tvModal.querySelector("img").src = url;
-    }
   }
 
   function updatePreviewInfo(device) {
@@ -130,7 +131,8 @@ document.addEventListener("DOMContentLoaded", () => {
     generatedProfiles = [];
     imageInput.value = "";
     generatedVersionsList.innerHTML = "";
-    if (tvModal) tvModal.classList.remove("visible");
+    if (tvModal) document.body.removeChild(tvModal); // Xóa hẳn modal để reset hoàn toàn
+    tvModal = null;
     previewControls.querySelectorAll(".preview-btn").forEach((btn) => {
       btn.classList.add("disabled");
       btn.classList.remove("active");
@@ -185,8 +187,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const card = document.createElement("div");
         card.className = "version-card";
-
-        // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT LÀ ĐÂY ===
         card.innerHTML = `
                     <h4>Phiên bản ${profile.name}</h4>
                     <ul>
