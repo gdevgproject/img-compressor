@@ -1,4 +1,4 @@
-// compress.worker.js (PHIÊN BẢN V10.0 FINAL - Tăng cường Chất lượng Thị giác)
+// compress.worker.js (PHIÊN BẢN V11.0 FINAL - Mobile Perceptual Quality)
 
 // --- CÁC HÀM TIỆN ÍCH (Không thay đổi) ---
 async function analyzeImageVitals(imageBitmap) {
@@ -34,7 +34,7 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
   let upperBound = 1;
   let bestBlob = null;
   let bestQuality = 0;
-  const iterations = 7;
+  const iterations = 8; // Tăng 1 vòng lặp để tìm kiếm chính xác hơn ở quality thấp
   for (let i = 0; i < iterations; i++) {
     const quality = (lowerBound + upperBound) / 2;
     const blob = await canvas.convertToBlob({ type: "image/webp", quality });
@@ -47,8 +47,11 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
     }
   }
   if (!bestBlob) {
-    bestBlob = await canvas.convertToBlob({ type: "image/webp", quality: 0 });
-    bestQuality = 0;
+    bestBlob = await canvas.convertToBlob({
+      type: "image/webp",
+      quality: upperBound,
+    });
+    bestQuality = upperBound;
   }
   return { blob: bestBlob, quality: bestQuality };
 }
@@ -57,6 +60,7 @@ async function compressAndEncode(canvas, targetSizeInBytes) {
 self.onmessage = async function (event) {
   const { file } = event.data;
   try {
+    // === CẬP NHẬT V11.0: Điều chỉnh Target cho Mobile ('s') ===
     const profiles = {
       l: {
         name: "l",
@@ -66,8 +70,8 @@ self.onmessage = async function (event) {
           vector: 18,
           graphic: 25,
           art: 40,
-          standard: 55,
-          complex: 65,
+          standard: 48,
+          complex: 55,
         },
       },
       m: {
@@ -79,7 +83,7 @@ self.onmessage = async function (event) {
           graphic: 10,
           art: 18,
           standard: 25,
-          complex: 35,
+          complex: 30,
         },
       },
       s: {
@@ -87,11 +91,11 @@ self.onmessage = async function (event) {
         maxDimension: 480,
         targets: {
           minimal: 2,
-          vector: 3,
-          graphic: 7,
-          art: 10,
-          standard: 15,
-          complex: 20,
+          vector: 4,
+          graphic: 8,
+          art: 12,
+          standard: 18,
+          complex: 25,
         },
       },
       t: {
@@ -200,19 +204,24 @@ self.onmessage = async function (event) {
         inputType.includes("heic") ||
         inputType.includes("jpg");
 
-      // === BỘ LỌC NÂNG CAO V10.0 ===
-      // 1. Khử nhiễu cho ảnh chụp phức tạp (như cũ)
+      // === BỘ LỌC NÂNG CAO V11.0 ===
+      // 1. Khử nhiễu cho ảnh chụp phức tạp
       if ((category === "standard" || category === "complex") && isPhotoType) {
-        ctx.filter = "blur(0.4px)";
-        ctx.drawImage(canvas, 0, 0);
+        ctx.filter = "blur(0.3px)"; // Giảm nhẹ blur để giữ chi tiết
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
 
-      // 2. Tăng cường chất lượng thị giác (kỹ thuật mới)
-      // Áp dụng cho mọi ảnh trừ những ảnh siêu đơn giản (logo/icon)
+      // 2. Tăng cường chất lượng thị giác (Perceptual Enhancement)
       if (category !== "minimal" && category !== "vector") {
-        ctx.filter = "contrast(1.03) saturate(1.03)";
+        let contrast = 1.03;
+        let saturate = 1.03;
+        // Áp dụng bộ lọc mạnh hơn cho các phiên bản bị nén sâu
+        if (profile.name === "s" || profile.name === "t") {
+          contrast = 1.08;
+          saturate = 1.05;
+        }
+        ctx.filter = `contrast(${contrast}) saturate(${saturate})`;
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = "none";
       }
