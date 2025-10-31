@@ -199,25 +199,24 @@ self.onmessage = async function (event) {
       percent: 40,
       message: `Sẽ tạo ${profilesToGenerate.length} phiên bản...`,
     });
-    const results = [];
-    let progressChunk = 60 / profilesToGenerate.length;
-    for (let i = 0; i < profilesToGenerate.length; i++) {
-      const profile = profilesToGenerate[i];
-      const result = await compressProfile(
-        imageBitmap,
-        profile,
-        vitals,
-        inputType,
-        (msg) => {
-          self.postMessage({
-            status: "progress",
-            percent: 40 + i * progressChunk,
-            message: msg,
-          });
-        }
-      );
-      results.push(result);
-    }
+
+    self.postMessage({
+      status: "progress",
+      percent: 45,
+      message: `Bắt đầu nén song song ${profilesToGenerate.length} phiên bản...`,
+    });
+
+    const compressionPromises = profilesToGenerate.map((profile) =>
+      compressProfile(imageBitmap, profile, vitals, inputType, (msg) => {
+        // Hàm onProgress giờ không cần cập nhật thanh tiến trình nữa
+        // vì các tác vụ chạy song song. Có thể dùng để log chi tiết.
+        console.log(`[Worker] Progress for ${profile.name}: ${msg}`);
+      })
+    );
+
+    // Chờ tất cả các promise nén hoàn thành cùng lúc
+    const results = await Promise.all(compressionPromises);
+
     const previewResult =
       results.find((r) => r.name === "Laptop") || results[0];
     self.postMessage({
