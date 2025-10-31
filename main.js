@@ -111,13 +111,17 @@ document.addEventListener("DOMContentLoaded", () => {
         { thresholdKB: 80, targetKB: 45, name: "Ảnh Web chuẩn" },
       ];
 
-      // Gửi tác vụ nén đến Worker
       compressWorker.postMessage({
         file: file,
         maxDimension: 960,
-        // Mục tiêu mặc định cho ảnh chi tiết cao nhất
-        defaultTargetKB: 70,
-        tiers: compressionTiers,
+        // Gửi các mục tiêu cho từng loại ảnh đã được phân loại
+        targets: {
+          grayscale: 15,
+          minimal: 8,
+          graphic: 25,
+          standard: 50,
+          complex: 75, // Đây là defaultTargetKB cũ
+        },
       });
     };
   }
