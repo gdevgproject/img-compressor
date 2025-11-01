@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UltraCompress - Test Image Compression</title>
+    <title>UltraCompress Pro - Professional Image Compression</title>
     <style>
       * {
         margin: 0;
@@ -13,14 +13,20 @@
 
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          "Inter", sans-serif;
+        background: linear-gradient(
+          135deg,
+          #1e3c72 0%,
+          #2a5298 50%,
+          #7e22ce 100%
+        );
         min-height: 100vh;
         padding: 20px;
+        color: #333;
       }
 
       .container {
-        max-width: 1200px;
+        max-width: 1600px;
         margin: 0 auto;
       }
 
@@ -28,123 +34,52 @@
         text-align: center;
         color: white;
         margin-bottom: 40px;
+        animation: fadeInDown 0.6s ease;
+      }
+
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .header h1 {
-        font-size: 3em;
+        font-size: 3.5em;
         margin-bottom: 10px;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+        font-weight: 800;
       }
 
-      .header p {
-        font-size: 1.2em;
-        opacity: 0.9;
+      .header .subtitle {
+        font-size: 1.3em;
+        opacity: 0.95;
+        font-weight: 300;
       }
 
-      .upload-section {
-        background: white;
+      .header .version {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 5px 15px;
         border-radius: 20px;
+        font-size: 0.9em;
+        margin-top: 10px;
+      }
+
+      .main-panel {
+        background: white;
+        border-radius: 24px;
         padding: 40px;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         margin-bottom: 30px;
+        animation: fadeInUp 0.6s ease;
       }
 
-      .upload-area {
-        border: 3px dashed #667eea;
-        border-radius: 15px;
-        padding: 60px 20px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        background: #f8f9ff;
-      }
-
-      .upload-area:hover {
-        border-color: #764ba2;
-        background: #f0f2ff;
-        transform: translateY(-2px);
-      }
-
-      .upload-area.dragover {
-        border-color: #764ba2;
-        background: #e8ebff;
-        transform: scale(1.02);
-      }
-
-      .upload-icon {
-        font-size: 4em;
-        margin-bottom: 20px;
-      }
-
-      .upload-text {
-        font-size: 1.3em;
-        color: #333;
-        margin-bottom: 10px;
-      }
-
-      .upload-hint {
-        color: #666;
-        font-size: 0.9em;
-      }
-
-      #fileInput {
-        display: none;
-      }
-
-      .preset-buttons {
-        display: flex;
-        gap: 15px;
-        justify-content: center;
-        margin-top: 30px;
-        flex-wrap: wrap;
-      }
-
-      .preset-btn {
-        padding: 15px 30px;
-        border: none;
-        border-radius: 10px;
-        font-size: 1.1em;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-weight: 600;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-      }
-
-      .preset-btn.large {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-      }
-
-      .preset-btn.small {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-      }
-
-      .preset-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-      }
-
-      .preset-btn.active {
-        transform: scale(0.95);
-      }
-
-      .results-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 30px;
-        margin-top: 30px;
-      }
-
-      .result-card {
-        background: white;
-        border-radius: 20px;
-        padding: 25px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        animation: slideIn 0.5s ease;
-      }
-
-      @keyframes slideIn {
+      @keyframes fadeInUp {
         from {
           opacity: 0;
           transform: translateY(20px);
@@ -155,59 +90,558 @@
         }
       }
 
-      .result-card h3 {
-        color: #333;
+      .upload-area {
+        border: 3px dashed #7e22ce;
+        border-radius: 20px;
+        padding: 80px 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .upload-area::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(
+          circle,
+          rgba(126, 34, 206, 0.1) 0%,
+          transparent 70%
+        );
+        animation: pulse 3s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.5;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 0.8;
+        }
+      }
+
+      .upload-area:hover {
+        border-color: #6b21a8;
+        background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(126, 34, 206, 0.2);
+      }
+
+      .upload-area.dragover {
+        border-color: #6b21a8;
+        background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+        transform: scale(1.02);
+      }
+
+      .upload-icon {
+        font-size: 5em;
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 1;
+        animation: bounce 2s ease-in-out infinite;
+      }
+
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+
+      .upload-text {
+        font-size: 1.5em;
+        color: #7e22ce;
+        margin-bottom: 10px;
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
+      }
+
+      .upload-hint {
+        color: #6b21a8;
+        font-size: 1em;
+        position: relative;
+        z-index: 1;
+      }
+
+      #fileInput {
+        display: none;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+      }
+
+      .control-group {
+        background: #f9fafb;
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #e5e7eb;
+      }
+
+      .control-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #374151;
+        font-size: 0.95em;
+      }
+
+      .control-group select,
+      .control-group input[type="range"] {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 1em;
+        transition: all 0.3s ease;
+      }
+
+      .control-group select:focus {
+        outline: none;
+        border-color: #7e22ce;
+        box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+      }
+
+      .quality-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .quality-btn {
+        flex: 1;
+        padding: 10px;
+        border: 2px solid #d1d5db;
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        font-size: 0.9em;
+      }
+
+      .quality-btn:hover {
+        border-color: #7e22ce;
+        background: #faf5ff;
+      }
+
+      .quality-btn.active {
+        background: linear-gradient(135deg, #7e22ce 0%, #6b21a8 100%);
+        color: white;
+        border-color: #7e22ce;
+      }
+
+      .crop-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        padding: 20px;
+        overflow: auto;
+      }
+
+      .crop-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .crop-container {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 1200px;
+        width: 100%;
+        max-height: 90vh;
+        overflow: auto;
+      }
+
+      .crop-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .crop-header h2 {
+        font-size: 1.8em;
+        color: #7e22ce;
+      }
+
+      .close-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .close-btn:hover {
+        background: #dc2626;
+        transform: scale(1.05);
+      }
+
+      .crop-preview-area {
+        position: relative;
+        background: #f3f4f6;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        max-height: 500px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .crop-image {
+        max-width: 100%;
+        max-height: 500px;
+        cursor: move;
+        user-select: none;
+      }
+
+      .crop-frame {
+        position: absolute;
+        border: 3px solid #7e22ce;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        cursor: move;
+      }
+
+      .crop-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .crop-control {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .crop-control label {
+        font-weight: 600;
+        font-size: 0.9em;
+        color: #374151;
+      }
+
+      .crop-control input {
+        padding: 8px;
+        border: 2px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.95em;
+      }
+
+      .crop-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: flex-end;
+      }
+
+      .btn {
+        padding: 12px 30px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1.1em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #7e22ce 0%, #6b21a8 100%);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(126, 34, 206, 0.4);
+      }
+
+      .btn-secondary {
+        background: #e5e7eb;
+        color: #374151;
+      }
+
+      .btn-secondary:hover {
+        background: #d1d5db;
+      }
+
+      .progress-section {
+        display: none;
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .progress-section.active {
+        display: block;
+        animation: fadeInUp 0.4s ease;
+      }
+
+      .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .progress-header h3 {
+        font-size: 1.5em;
+        color: #7e22ce;
+      }
+
+      .progress-stats {
+        display: flex;
+        gap: 20px;
+        font-size: 0.95em;
+        color: #6b7280;
+      }
+
+      .progress-bar-container {
+        background: #e5e7eb;
+        height: 40px;
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
         margin-bottom: 15px;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #7e22ce 0%, #a855f7 100%);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.1em;
+      }
+
+      .progress-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .progress-item {
+        background: #f9fafb;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #7e22ce;
+      }
+
+      .progress-item label {
+        display: block;
+        font-size: 0.85em;
+        color: #6b7280;
+        margin-bottom: 5px;
+      }
+
+      .progress-item value {
+        display: block;
         font-size: 1.3em;
+        font-weight: 700;
+        color: #111827;
+      }
+
+      .results-grid {
+        display: grid;
+        gap: 30px;
+      }
+
+      .result-item {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        animation: fadeInUp 0.5s ease;
+      }
+
+      .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .result-header h3 {
+        font-size: 1.4em;
+        color: #7e22ce;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .result-badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 600;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+      }
+
+      .comparison-view {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 25px;
+      }
+
+      .version-card {
+        background: #f9fafb;
+        border-radius: 15px;
+        padding: 20px;
+        border: 2px solid #e5e7eb;
+        transition: all 0.3s ease;
+      }
+
+      .version-card:hover {
+        border-color: #7e22ce;
+        box-shadow: 0 8px 20px rgba(126, 34, 206, 0.15);
+      }
+
+      .version-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .version-title {
+        font-weight: 700;
+        font-size: 1.1em;
+        color: #374151;
+      }
+
+      .version-size {
+        font-weight: 600;
+        color: #7e22ce;
+        font-size: 1.2em;
+      }
+
+      .image-preview-wrapper {
+        position: relative;
+        background: #000;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 15px;
       }
 
       .image-preview {
         width: 100%;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        display: block;
+        cursor: zoom-in;
       }
 
-      .stats {
-        background: #f8f9ff;
-        padding: 15px;
-        border-radius: 10px;
+      .image-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(
+          to top,
+          rgba(0, 0, 0, 0.8) 0%,
+          transparent 100%
+        );
+        padding: 10px;
+        color: white;
+        font-size: 0.85em;
+        font-weight: 600;
+      }
+
+      .metadata-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
         margin-bottom: 15px;
       }
 
-      .stat-row {
+      .metadata-item {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 8px;
-        font-size: 0.95em;
+        padding: 8px 12px;
+        background: white;
+        border-radius: 8px;
+        font-size: 0.9em;
       }
 
-      .stat-label {
-        color: #666;
+      .metadata-label {
+        color: #6b7280;
         font-weight: 500;
       }
 
-      .stat-value {
-        color: #333;
-        font-weight: 600;
+      .metadata-value {
+        color: #111827;
+        font-weight: 700;
       }
 
-      .stat-value.savings {
+      .metadata-value.highlight {
         color: #10b981;
-        font-size: 1.2em;
       }
 
-      .download-btn {
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
+      .action-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .action-btn {
+        flex: 1;
+        padding: 10px;
         border: none;
-        border-radius: 10px;
-        font-size: 1em;
+        border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
+        font-size: 0.95em;
+      }
+
+      .download-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
       }
 
       .download-btn:hover {
@@ -215,16 +649,156 @@
         box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
       }
 
-      .loading {
-        text-align: center;
-        padding: 40px;
+      .compare-btn {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
-        font-size: 1.3em;
+      }
+
+      .compare-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+      }
+
+      .original-info {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        border-left: 5px solid #f59e0b;
+      }
+
+      .original-info h4 {
+        color: #92400e;
+        margin-bottom: 10px;
+        font-size: 1.1em;
+      }
+
+      .original-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+      }
+
+      .original-stat {
+        color: #78350f;
+        font-size: 0.95em;
+      }
+
+      .original-stat strong {
+        color: #92400e;
+      }
+
+      .analysis-panel {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        border-left: 5px solid #3b82f6;
+      }
+
+      .analysis-panel h4 {
+        color: #1e40af;
+        margin-bottom: 15px;
+        font-size: 1.1em;
+      }
+
+      .analysis-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+      }
+
+      .analysis-item {
+        background: white;
+        padding: 12px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .analysis-label {
+        display: block;
+        font-size: 0.85em;
+        color: #6b7280;
+        margin-bottom: 5px;
+      }
+
+      .analysis-value {
+        display: block;
+        font-size: 1.2em;
+        font-weight: 700;
+        color: #1e40af;
+      }
+
+      .comparison-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 2000;
+        padding: 20px;
+        overflow: auto;
+      }
+
+      .comparison-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .comparison-container {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 1400px;
+        width: 100%;
+        max-height: 90vh;
+        overflow: auto;
+      }
+
+      .comparison-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .comparison-images {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .comparison-image-wrapper {
+        position: relative;
+        background: #000;
+        border-radius: 15px;
+        overflow: hidden;
+      }
+
+      .comparison-image {
+        width: 100%;
+        display: block;
+      }
+
+      .comparison-label {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-weight: 600;
       }
 
       .spinner {
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-top: 4px solid white;
+        border: 4px solid rgba(126, 34, 206, 0.2);
+        border-top: 4px solid #7e22ce;
         border-radius: 50%;
         width: 50px;
         height: 50px;
@@ -241,13 +815,37 @@
         }
       }
 
-      .error {
+      .error-message {
         background: #fee;
         color: #c00;
-        padding: 15px;
+        padding: 15px 20px;
         border-radius: 10px;
-        margin-top: 20px;
-        text-align: center;
+        margin: 20px 0;
+        border-left: 5px solid #c00;
+        animation: shake 0.5s ease;
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-10px);
+        }
+        75% {
+          transform: translateX(10px);
+        }
+      }
+
+      @media (max-width: 1024px) {
+        .comparison-view {
+          grid-template-columns: 1fr;
+        }
+
+        .comparison-images {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 768px) {
@@ -255,11 +853,15 @@
           font-size: 2em;
         }
 
-        .upload-section {
+        .main-panel {
           padding: 20px;
         }
 
-        .results-section {
+        .controls {
+          grid-template-columns: 1fr;
+        }
+
+        .metadata-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -268,47 +870,179 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1>🚀 UltraCompress</h1>
-        <p>
-          Nén ảnh thông minh với công nghệ AI - Chất lượng cao, dung lượng thấp
-        </p>
+        <h1>🚀 UltraCompress Pro</h1>
+        <div class="subtitle">
+          Nén ảnh thông minh với AI - Dual Version Output
+        </div>
+        <div class="version">v2.0.0 Professional</div>
       </div>
 
-      <div class="upload-section">
+      <div class="main-panel">
         <div class="upload-area" id="uploadArea">
           <div class="upload-icon">📸</div>
           <div class="upload-text">Kéo thả ảnh vào đây hoặc click để chọn</div>
           <div class="upload-hint">
-            Hỗ trợ: JPG, PNG, WebP, GIF (kể cả GIF động)
+            Hỗ trợ: JPG, PNG, WebP, GIF (animated), BMP, TIFF - Unlimited files
           </div>
         </div>
         <input type="file" id="fileInput" accept="image/*" multiple />
 
-        <div class="preset-buttons">
-          <button class="preset-btn large active" data-preset="large">
-            📱 Large (864px - 45KB)<br />
-            <small>Tỷ lệ 4:3</small>
-          </button>
-          <button class="preset-btn small" data-preset="small">
-            💾 Small (420px - 16KB)<br />
-            <small>Tỷ lệ 4:3</small>
-          </button>
+        <div class="controls">
+          <div class="control-group">
+            <label>🎯 Quality Mode</label>
+            <div class="quality-buttons">
+              <button class="quality-btn" data-quality="maximum">
+                Maximum
+              </button>
+              <button class="quality-btn active" data-quality="balanced">
+                Balanced
+              </button>
+              <button class="quality-btn" data-quality="aggressive">
+                Aggressive
+              </button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>📐 Large Preset</label>
+            <select id="largePreset">
+              <option value="864">864px - 45KB (4:3)</option>
+              <option value="1024">1024px - 80KB (4:3)</option>
+              <option value="1200">1200px - 100KB (16:9)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>📐 Small Preset</label>
+            <select id="smallPreset">
+              <option value="420">420px - 16KB (4:3)</option>
+              <option value="600">600px - 30KB (4:3)</option>
+              <option value="800">800px - 50KB (16:9)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>⚡ Concurrent Processing</label>
+            <select id="concurrent">
+              <option value="3">3 files at once</option>
+              <option value="5" selected>5 files at once</option>
+              <option value="10">10 files at once</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div id="loading" class="loading" style="display: none">
-        <div class="spinner"></div>
-        <div>Đang nén ảnh với công nghệ tiên tiến...</div>
+      <div class="progress-section" id="progressSection">
+        <div class="progress-header">
+          <h3>⏳ Processing...</h3>
+          <div class="progress-stats">
+            <span id="progressText">0 / 0</span>
+          </div>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar">0%</div>
+        </div>
+        <div class="progress-details">
+          <div class="progress-item">
+            <label>Total Files</label>
+            <value id="totalFiles">0</value>
+          </div>
+          <div class="progress-item">
+            <label>Completed</label>
+            <value id="completedFiles">0</value>
+          </div>
+          <div class="progress-item">
+            <label>Total Time</label>
+            <value id="totalTime">0ms</value>
+          </div>
+          <div class="progress-item">
+            <label>Avg Speed</label>
+            <value id="avgSpeed">0 KB/s</value>
+          </div>
+        </div>
       </div>
 
-      <div id="error" class="error" style="display: none"></div>
+      <div id="results" class="results-grid"></div>
+    </div>
 
-      <div id="results" class="results-section"></div>
+    <!-- Crop Modal -->
+    <div class="crop-modal" id="cropModal">
+      <div class="crop-container">
+        <div class="crop-header">
+          <h2>✂️ Crop & Position Image</h2>
+          <button class="close-btn" onclick="closeCropModal()">✕ Close</button>
+        </div>
+
+        <div class="crop-preview-area" id="cropPreviewArea">
+          <img id="cropImage" class="crop-image" alt="Crop preview" />
+          <div class="crop-frame" id="cropFrame"></div>
+        </div>
+
+        <div class="crop-controls">
+          <div class="crop-control">
+            <label>Aspect Ratio</label>
+            <select id="aspectRatio">
+              <option value="1.333">4:3 (Default)</option>
+              <option value="1.778">16:9</option>
+              <option value="1">1:1 (Square)</option>
+              <option value="0.8">4:5 (Portrait)</option>
+            </select>
+          </div>
+          <div class="crop-control">
+            <label>Frame Width (%)</label>
+            <input
+              type="number"
+              id="frameWidth"
+              value="80"
+              min="20"
+              max="100"
+            />
+          </div>
+          <div class="crop-control">
+            <label>X Position (%)</label>
+            <input type="number" id="framePosX" value="10" min="0" max="80" />
+          </div>
+          <div class="crop-control">
+            <label>Y Position (%)</label>
+            <input type="number" id="framePosY" value="10" min="0" max="80" />
+          </div>
+        </div>
+
+        <div class="crop-actions">
+          <button class="btn btn-secondary" onclick="resetCrop()">Reset</button>
+          <button class="btn btn-primary" onclick="applyCropAndCompress()">
+            ✓ Apply & Compress
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison Modal -->
+    <div class="comparison-modal" id="comparisonModal">
+      <div class="comparison-container">
+        <div class="comparison-header">
+          <h2>🔍 Version Comparison</h2>
+          <button class="close-btn" onclick="closeComparisonModal()">
+            ✕ Close
+          </button>
+        </div>
+        <div class="comparison-images">
+          <div class="comparison-image-wrapper">
+            <img id="compareImage1" class="comparison-image" alt="Version 1" />
+            <div class="comparison-label" id="compareLabel1">Large Version</div>
+          </div>
+          <div class="comparison-image-wrapper">
+            <img id="compareImage2" class="comparison-image" alt="Version 2" />
+            <div class="comparison-label" id="compareLabel2">Small Version</div>
+          </div>
+        </div>
+        <div id="compareMetadata"></div>
+      </div>
     </div>
 
     <script>
-      // UltraCompress Library
-      class UltraCompress {
+      // UltraCompress Pro Library (embedded)
+      class UltraCompressPro {
         constructor() {
           this.presets = {
             large: {
@@ -322,57 +1056,322 @@
               aspectRatio: 4 / 3,
             },
           };
+          this.stats = { totalProcessed: 0, averageCompressionRatio: 0 };
         }
 
         async compress(file, options = {}) {
+          const startTime = performance.now();
           const {
-            preset = "large",
-            maxDimension = this.presets[preset]?.maxDimension || 864,
-            targetSize = this.presets[preset]?.targetSize || 45 * 1024,
-            aspectRatio = 4 / 3,
-            format = "auto",
+            presets = ["large", "small"],
+            customPresets = null,
+            quality = "balanced",
           } = options;
 
           try {
-            const isAnimatedGif = await this._isAnimatedGif(file);
+            const fileInfo = await this._analyzeFile(file);
 
-            if (isAnimatedGif) {
-              return await this._compressAnimatedGif(file, {
-                maxDimension,
-                targetSize,
-                aspectRatio,
+            if (fileInfo.isAnimatedGif) {
+              return await this._compressAnimatedGifDual(file, {
+                presets,
+                customPresets,
+                fileInfo,
+                startTime,
               });
             }
 
-            return await this._compressStaticImage(file, {
-              maxDimension,
-              targetSize,
-              aspectRatio,
-              format,
+            return await this._compressStaticImageDual(file, {
+              presets,
+              customPresets,
+              fileInfo,
+              quality,
+              startTime,
             });
           } catch (error) {
-            console.error("Compression failed:", error);
-            throw new Error(`Nén ảnh thất bại: ${error.message}`);
+            throw new Error(`Compression failed: ${error.message}`);
           }
         }
 
-        async _compressStaticImage(file, options) {
-          const { maxDimension, targetSize, aspectRatio, format } = options;
-
+        async _compressStaticImageDual(file, options) {
+          const { presets, customPresets, fileInfo, quality, startTime } =
+            options;
           const img = await this._loadImage(file);
-          const dims = this._calculateDimensions(
-            img.width,
-            img.height,
-            maxDimension,
-            aspectRatio
-          );
+          const analysis = await this._analyzeImageCharacteristics(img, file);
+          const presetsToUse =
+            customPresets || presets.map((p) => this.presets[p]);
+          const results = [];
 
+          for (let i = 0; i < presetsToUse.length; i++) {
+            const preset = presetsToUse[i];
+            const presetStartTime = performance.now();
+            const dims = this._calculateDimensions(
+              img.width,
+              img.height,
+              preset.maxDimension,
+              preset.aspectRatio
+            );
+            const canvas = await this._createOptimizedCanvas(
+              img,
+              dims,
+              analysis
+            );
+            const outputFormat = this._selectOptimalFormat(fileInfo, analysis);
+
+            let compressed = await this._intelligentCompress(
+              canvas,
+              outputFormat,
+              preset.targetSize,
+              analysis,
+              quality
+            );
+
+            if (compressed.size > preset.targetSize) {
+              compressed = await this._advancedOptimization(
+                canvas,
+                outputFormat,
+                preset.targetSize,
+                analysis
+              );
+            }
+
+            const compressionTime = performance.now() - presetStartTime;
+            const metadata = this._generateMetadata(
+              file,
+              compressed,
+              dims,
+              outputFormat,
+              compressionTime,
+              analysis,
+              i === 0 ? "large" : "small"
+            );
+
+            results.push({
+              blob: compressed,
+              metadata: metadata,
+              preview: URL.createObjectURL(compressed),
+            });
+          }
+
+          const totalTime = performance.now() - startTime;
+          this._updateStats(results);
+
+          return {
+            versions: results,
+            original: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              sizeKB: (file.size / 1024).toFixed(2),
+              dimensions: `${img.width}x${img.height}`,
+            },
+            totalCompressionTime: totalTime.toFixed(2) + "ms",
+            analysis: analysis,
+          };
+        }
+
+        async _compressAnimatedGifDual(file, options) {
+          const { presets, customPresets, fileInfo, startTime } = options;
+          const gifData = await this._parseGifStructure(file);
+          const frameAnalysis = await this._analyzeGifFrames(gifData);
+          const presetsToUse =
+            customPresets || presets.map((p) => this.presets[p]);
+          const results = [];
+
+          for (let i = 0; i < presetsToUse.length; i++) {
+            const preset = presetsToUse[i];
+            const presetStartTime = performance.now();
+            const dims = this._calculateDimensions(
+              gifData.width,
+              gifData.height,
+              preset.maxDimension,
+              preset.aspectRatio
+            );
+            const optimizedFrames = await this._optimizeGifFramesAdvanced(
+              gifData.frames,
+              dims,
+              frameAnalysis,
+              preset.targetSize
+            );
+            const compressed = await this._rebuildOptimizedGif(
+              optimizedFrames,
+              dims,
+              gifData.delays,
+              gifData.loop,
+              preset.targetSize
+            );
+            const compressionTime = performance.now() - presetStartTime;
+            const metadata = this._generateMetadata(
+              file,
+              compressed,
+              dims,
+              "image/gif",
+              compressionTime,
+              frameAnalysis,
+              i === 0 ? "large" : "small",
+              { isAnimated: true, frameCount: gifData.frames.length }
+            );
+
+            results.push({
+              blob: compressed,
+              metadata: metadata,
+              preview: URL.createObjectURL(compressed),
+            });
+          }
+
+          const totalTime = performance.now() - startTime;
+
+          return {
+            versions: results,
+            original: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              sizeKB: (file.size / 1024).toFixed(2),
+              dimensions: `${gifData.width}x${gifData.height}`,
+              frames: gifData.frames.length,
+              animated: true,
+            },
+            totalCompressionTime: totalTime.toFixed(2) + "ms",
+            analysis: frameAnalysis,
+          };
+        }
+
+        async _analyzeFile(file) {
+          const buffer = await file.arrayBuffer();
+          const arr = new Uint8Array(buffer);
+          const type = this._detectFileType(arr);
+          let isAnimatedGif = false;
+          if (type === "image/gif") {
+            isAnimatedGif = await this._isAnimatedGif(file);
+          }
+          return {
+            type: type,
+            isAnimatedGif: isAnimatedGif,
+            size: file.size,
+            buffer: buffer,
+          };
+        }
+
+        _detectFileType(arr) {
+          if (arr[0] === 0xff && arr[1] === 0xd8 && arr[2] === 0xff)
+            return "image/jpeg";
+          if (
+            arr[0] === 0x89 &&
+            arr[1] === 0x50 &&
+            arr[2] === 0x4e &&
+            arr[3] === 0x47
+          )
+            return "image/png";
+          if (arr[0] === 0x47 && arr[1] === 0x49 && arr[2] === 0x46)
+            return "image/gif";
+          if (
+            arr[8] === 0x57 &&
+            arr[9] === 0x45 &&
+            arr[10] === 0x42 &&
+            arr[11] === 0x50
+          )
+            return "image/webp";
+          if (arr[0] === 0x42 && arr[1] === 0x4d) return "image/bmp";
+          return "image/unknown";
+        }
+
+        async _analyzeImageCharacteristics(img, file) {
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.min(img.width, 100);
+          canvas.height = Math.min(img.height, 100);
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          let totalVariance = 0;
+          let edges = 0;
+          let transparentPixels = 0;
+          const colorFrequency = new Map();
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            if (a < 255) transparentPixels++;
+
+            const color = `${r},${g},${b}`;
+            colorFrequency.set(color, (colorFrequency.get(color) || 0) + 1);
+
+            if (i > 0) {
+              const prevR = data[i - 4];
+              const prevG = data[i - 3];
+              const prevB = data[i - 2];
+              const diff =
+                Math.abs(r - prevR) + Math.abs(g - prevG) + Math.abs(b - prevB);
+              if (diff > 30) edges++;
+              totalVariance += diff;
+            }
+          }
+
+          const totalPixels = data.length / 4;
+          const uniqueColors = colorFrequency.size;
+          const complexity = (edges / totalPixels) * 100;
+          const hasTransparency = transparentPixels > 0;
+          const averageVariance = totalVariance / totalPixels;
+
+          let imageType = "photo";
+          if (uniqueColors < 256) {
+            imageType = "graphic";
+          } else if (complexity < 5) {
+            imageType = "simple";
+          } else if (complexity > 20) {
+            imageType = "complex";
+          }
+
+          return {
+            complexity: complexity.toFixed(2),
+            uniqueColors: uniqueColors,
+            hasTransparency: hasTransparency,
+            transparencyRatio: (
+              (transparentPixels / totalPixels) *
+              100
+            ).toFixed(2),
+            imageType: imageType,
+            averageVariance: averageVariance.toFixed(2),
+            recommendedQuality: this._calculateRecommendedQuality(
+              complexity,
+              imageType
+            ),
+            compressibility: this._calculateCompressibility(
+              uniqueColors,
+              complexity
+            ),
+          };
+        }
+
+        _calculateRecommendedQuality(complexity, imageType) {
+          if (imageType === "graphic" || imageType === "simple") return 0.85;
+          if (complexity > 20) return 0.75;
+          return 0.8;
+        }
+
+        _calculateCompressibility(uniqueColors, complexity) {
+          let score = 50;
+          if (uniqueColors < 256) score += 30;
+          else if (uniqueColors < 1000) score += 20;
+          else if (uniqueColors < 5000) score += 10;
+          if (complexity < 5) score += 20;
+          else if (complexity < 10) score += 10;
+          return Math.min(100, score);
+        }
+
+        async _createOptimizedCanvas(img, dims, analysis) {
           const canvas = document.createElement("canvas");
           canvas.width = dims.width;
           canvas.height = dims.height;
+
           const ctx = canvas.getContext("2d", {
-            alpha: true,
+            alpha: analysis.hasTransparency,
             willReadFrequently: false,
+            desynchronized: true,
           });
 
           ctx.imageSmoothingEnabled = true;
@@ -380,47 +1379,318 @@
 
           this._drawImageToCanvas(ctx, img, dims);
 
-          const outputFormat =
-            format === "auto" ? this._selectFormat(file.type) : format;
-
-          let compressed = await this._optimizeQuality(
-            canvas,
-            outputFormat,
-            targetSize
-          );
-
-          if (compressed.size > targetSize) {
-            compressed = await this._advancedOptimization(
-              canvas,
-              outputFormat,
-              targetSize
-            );
+          if (analysis.imageType === "photo" && dims.width < img.width * 0.7) {
+            this._applySharpeningFilter(ctx, canvas.width, canvas.height);
           }
 
-          return compressed;
+          return canvas;
         }
 
-        async _compressAnimatedGif(file, options) {
-          const { maxDimension, targetSize, aspectRatio } = options;
-          const frames = await this._parseGifFrames(file);
+        _applySharpeningFilter(ctx, width, height) {
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const data = imageData.data;
+          const sharpened = new Uint8ClampedArray(data);
+          const strength = 0.3;
 
-          if (frames.length === 0) {
-            throw new Error("Không tìm thấy frame trong GIF");
+          for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+              const i = (y * width + x) * 4;
+
+              for (let c = 0; c < 3; c++) {
+                const current = data[i + c];
+                const neighbor =
+                  (data[i - 4 + c] +
+                    data[i + 4 + c] +
+                    data[i - width * 4 + c] +
+                    data[i + width * 4 + c]) /
+                  4;
+
+                sharpened[i + c] = Math.min(
+                  255,
+                  Math.max(0, current + (current - neighbor) * strength)
+                );
+              }
+            }
           }
 
-          const dims = this._calculateDimensions(
-            frames[0].width,
-            frames[0].height,
-            maxDimension,
-            aspectRatio
-          );
+          imageData.data.set(sharpened);
+          ctx.putImageData(imageData, 0, 0);
+        }
 
-          const optimizedFrames = await this._optimizeGifFrames(
-            frames,
-            dims,
-            targetSize
-          );
-          return await this._buildOptimizedGif(optimizedFrames, dims);
+        async _intelligentCompress(
+          canvas,
+          format,
+          targetSize,
+          analysis,
+          qualityLevel
+        ) {
+          let baseQuality = analysis.recommendedQuality;
+
+          if (qualityLevel === "maximum") {
+            baseQuality = Math.min(0.95, baseQuality + 0.1);
+          } else if (qualityLevel === "aggressive") {
+            baseQuality = Math.max(0.6, baseQuality - 0.1);
+          }
+
+          let minQuality = Math.max(0.1, baseQuality - 0.3);
+          let maxQuality = Math.min(0.95, baseQuality + 0.1);
+          let bestBlob = null;
+          let iterations = 0;
+          const maxIterations = 15;
+
+          while (
+            iterations < maxIterations &&
+            maxQuality - minQuality > 0.005
+          ) {
+            const quality = (minQuality + maxQuality) / 2;
+            const blob = await this._canvasToBlob(canvas, format, quality);
+
+            if (blob.size <= targetSize) {
+              bestBlob = blob;
+              minQuality = quality;
+            } else {
+              maxQuality = quality;
+            }
+
+            iterations++;
+          }
+
+          if (!bestBlob) {
+            bestBlob = await this._canvasToBlob(canvas, format, minQuality);
+          }
+
+          return bestBlob;
+        }
+
+        async _advancedOptimization(canvas, format, targetSize, analysis) {
+          const steps = [0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5];
+
+          for (const scale of steps) {
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = Math.round(canvas.width * scale);
+            tempCanvas.height = Math.round(canvas.height * scale);
+            const ctx = tempCanvas.getContext("2d");
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+
+            const blob = await this._intelligentCompress(
+              tempCanvas,
+              format,
+              targetSize,
+              analysis,
+              "balanced"
+            );
+
+            if (blob.size <= targetSize) {
+              return blob;
+            }
+          }
+
+          const finalCanvas = document.createElement("canvas");
+          finalCanvas.width = Math.round(canvas.width * 0.5);
+          finalCanvas.height = Math.round(canvas.height * 0.5);
+          const ctx = finalCanvas.getContext("2d");
+          ctx.drawImage(canvas, 0, 0, finalCanvas.width, finalCanvas.height);
+
+          return await this._canvasToBlob(finalCanvas, format, 0.1);
+        }
+
+        _selectOptimalFormat(fileInfo, analysis) {
+          if (analysis.hasTransparency && analysis.imageType === "graphic") {
+            return "image/png";
+          }
+          if (this._isWebPSupported()) {
+            return "image/webp";
+          }
+          if (!analysis.hasTransparency) {
+            return "image/jpeg";
+          }
+          return "image/png";
+        }
+
+        async _parseGifStructure(file) {
+          const buffer = await file.arrayBuffer();
+          const arr = new Uint8Array(buffer);
+          const width = arr[6] | (arr[7] << 8);
+          const height = arr[8] | (arr[9] << 8);
+          const img = await this._loadImage(file);
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+
+          return {
+            width: width,
+            height: height,
+            frames: [canvas],
+            delays: [100],
+            loop: true,
+          };
+        }
+
+        async _analyzeGifFrames(gifData) {
+          const analysis = {
+            frameCount: gifData.frames.length,
+            averageComplexity: 0,
+            frameDifferences: [],
+            optimizable: true,
+          };
+
+          let totalComplexity = 0;
+          for (const frame of gifData.frames) {
+            const ctx = frame.getContext("2d", { willReadFrequently: true });
+            const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
+            const complexity = this._calculateFrameComplexity(imageData);
+            totalComplexity += complexity;
+          }
+
+          analysis.averageComplexity = totalComplexity / gifData.frames.length;
+          return analysis;
+        }
+
+        _calculateFrameComplexity(imageData) {
+          const data = imageData.data;
+          let variance = 0;
+
+          for (let i = 4; i < data.length; i += 4) {
+            const diff =
+              Math.abs(data[i] - data[i - 4]) +
+              Math.abs(data[i + 1] - data[i - 3]) +
+              Math.abs(data[i + 2] - data[i - 2]);
+            variance += diff;
+          }
+
+          return variance / (data.length / 4);
+        }
+
+        async _optimizeGifFramesAdvanced(frames, dims, analysis, targetSize) {
+          const optimized = [];
+
+          for (const frame of frames) {
+            const canvas = document.createElement("canvas");
+            canvas.width = dims.width;
+            canvas.height = dims.height;
+            const ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            this._drawImageToCanvas(ctx, frame, {
+              width: dims.width,
+              height: dims.height,
+              sourceWidth: frame.width,
+              sourceHeight: frame.height,
+            });
+
+            optimized.push(canvas);
+          }
+
+          return optimized;
+        }
+
+        async _rebuildOptimizedGif(frames, dims, delays, loop, targetSize) {
+          if (frames.length > 0) {
+            return await this._canvasToBlob(frames[0], "image/gif", 0.9);
+          }
+          throw new Error("No frames to build GIF");
+        }
+
+        _generateMetadata(
+          original,
+          compressed,
+          dims,
+          format,
+          time,
+          analysis,
+          preset,
+          extra = {}
+        ) {
+          const originalSize = original.size;
+          const compressedSize = compressed.size;
+          const savings = originalSize - compressedSize;
+          const ratio = ((savings / originalSize) * 100).toFixed(2);
+
+          return {
+            originalSize: originalSize,
+            compressedSize: compressedSize,
+            originalSizeKB: (originalSize / 1024).toFixed(2),
+            compressedSizeKB: (compressedSize / 1024).toFixed(2),
+            savings: savings,
+            savingsKB: (savings / 1024).toFixed(2),
+            compressionRatio: ratio + "%",
+            width: dims.width,
+            height: dims.height,
+            dimensions: `${dims.width}x${dims.height}`,
+            aspectRatio: (dims.width / dims.height).toFixed(2),
+            inputFormat: original.type,
+            outputFormat: format,
+            compressionTime: time.toFixed(2) + "ms",
+            compressionSpeed:
+              (originalSize / 1024 / (time / 1000)).toFixed(2) + " KB/s",
+            preset: preset,
+            quality: analysis.recommendedQuality
+              ? (analysis.recommendedQuality * 100).toFixed(0) + "%"
+              : "N/A",
+            imageType: analysis.imageType || "unknown",
+            complexity: analysis.complexity || "N/A",
+            compressibility: analysis.compressibility
+              ? analysis.compressibility + "/100"
+              : "N/A",
+            hasTransparency: analysis.hasTransparency || false,
+            ...extra,
+            processedAt: new Date().toISOString(),
+          };
+        }
+
+        async compressMultiple(files, options = {}) {
+          const {
+            onProgress = null,
+            concurrent = 3,
+            ...compressOptions
+          } = options;
+          const results = [];
+          const queue = Array.from(files);
+          let processed = 0;
+
+          while (queue.length > 0) {
+            const batch = queue.splice(0, concurrent);
+            const batchResults = await Promise.allSettled(
+              batch.map((file) => this.compress(file, compressOptions))
+            );
+
+            batchResults.forEach((result, index) => {
+              processed++;
+              const file = batch[index];
+
+              results.push({
+                fileName: file.name,
+                original: file,
+                success: result.status === "fulfilled",
+                data: result.status === "fulfilled" ? result.value : null,
+                error:
+                  result.status === "rejected" ? result.reason.message : null,
+              });
+
+              if (onProgress) {
+                onProgress({
+                  processed: processed,
+                  total: files.length,
+                  percentage: ((processed / files.length) * 100).toFixed(2),
+                });
+              }
+            });
+          }
+
+          return {
+            results: results,
+            summary: {
+              total: files.length,
+              successful: results.filter((r) => r.success).length,
+              failed: results.filter((r) => !r.success).length,
+            },
+          };
         }
 
         _calculateDimensions(width, height, maxDimension, targetAspectRatio) {
@@ -456,7 +1726,6 @@
 
         _drawImageToCanvas(ctx, img, dims) {
           const { width, height, sourceWidth, sourceHeight } = dims;
-
           const sourceAspect = sourceWidth / sourceHeight;
           const targetAspect = width / height;
 
@@ -476,73 +1745,47 @@
           ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
         }
 
-        async _optimizeQuality(canvas, format, targetSize) {
-          let minQuality = 0.1;
-          let maxQuality = 0.95;
-          let bestBlob = null;
-          let iterations = 0;
-          const maxIterations = 12;
-
-          while (iterations < maxIterations && maxQuality - minQuality > 0.01) {
-            const quality = (minQuality + maxQuality) / 2;
-            const blob = await this._canvasToBlob(canvas, format, quality);
-
-            if (blob.size <= targetSize) {
-              bestBlob = blob;
-              minQuality = quality;
-            } else {
-              maxQuality = quality;
-            }
-
-            iterations++;
-          }
-
-          if (!bestBlob) {
-            bestBlob = await this._canvasToBlob(canvas, format, minQuality);
-          }
-
-          return bestBlob;
+        _loadImage(file) {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+              URL.revokeObjectURL(url);
+              resolve(img);
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(url);
+              reject(new Error("Failed to load image"));
+            };
+            img.src = url;
+          });
         }
 
-        async _advancedOptimization(canvas, format, targetSize) {
-          let scale = 0.9;
-          const minScale = 0.5;
-
-          while (scale >= minScale) {
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = Math.round(canvas.width * scale);
-            tempCanvas.height = Math.round(canvas.height * scale);
-            const ctx = tempCanvas.getContext("2d");
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = "high";
-            ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-
-            const blob = await this._optimizeQuality(
-              tempCanvas,
+        _canvasToBlob(canvas, format, quality) {
+          return new Promise((resolve, reject) => {
+            canvas.toBlob(
+              (blob) =>
+                blob
+                  ? resolve(blob)
+                  : reject(new Error("Blob creation failed")),
               format,
-              targetSize
+              quality
             );
-            if (blob.size <= targetSize) {
-              return blob;
-            }
-
-            scale -= 0.1;
-          }
-
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = Math.round(canvas.width * minScale);
-          tempCanvas.height = Math.round(canvas.height * minScale);
-          const ctx = tempCanvas.getContext("2d");
-          ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-
-          return await this._canvasToBlob(tempCanvas, format, 0.1);
+          });
         }
 
-        _selectFormat(inputType) {
-          if (this._isWebPSupported()) {
-            return "image/webp";
+        async _isAnimatedGif(file) {
+          if (!file.type.includes("gif")) return false;
+          const buffer = await file.arrayBuffer();
+          const arr = new Uint8Array(buffer);
+          let imageCount = 0;
+          for (let i = 0; i < arr.length - 1; i++) {
+            if (arr[i] === 0x21 && arr[i + 1] === 0xf9) {
+              imageCount++;
+              if (imageCount > 1) return true;
+            }
           }
-          return inputType.includes("png") ? "image/png" : "image/jpeg";
+          return false;
         }
 
         _isWebPSupported() {
@@ -554,142 +1797,55 @@
           );
         }
 
-        _loadImage(file) {
-          return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = URL.createObjectURL(file);
-          });
-        }
-
-        _canvasToBlob(canvas, format, quality) {
-          return new Promise((resolve, reject) => {
-            canvas.toBlob(
-              (blob) =>
-                blob ? resolve(blob) : reject(new Error("Tạo blob thất bại")),
-              format,
-              quality
-            );
-          });
-        }
-
-        async _isAnimatedGif(file) {
-          if (!file.type.includes("gif")) return false;
-
-          const buffer = await file.arrayBuffer();
-          const arr = new Uint8Array(buffer);
-
-          let imageCount = 0;
-          for (let i = 0; i < arr.length - 1; i++) {
-            if (arr[i] === 0x21 && arr[i + 1] === 0xf9) {
-              imageCount++;
-              if (imageCount > 1) return true;
-            }
-          }
-          return false;
-        }
-
-        async _parseGifFrames(file) {
-          const img = await this._loadImage(file);
-
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0);
-
-          return [
-            {
-              width: img.width,
-              height: img.height,
-              canvas: canvas,
-              delay: 100,
-            },
-          ];
-        }
-
-        async _optimizeGifFrames(frames, dims, targetSize) {
-          const optimized = [];
-
-          for (const frame of frames) {
-            const canvas = document.createElement("canvas");
-            canvas.width = dims.width;
-            canvas.height = dims.height;
-            const ctx = canvas.getContext("2d");
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = "high";
-
-            this._drawImageToCanvas(ctx, frame.canvas, {
-              width: dims.width,
-              height: dims.height,
-              sourceWidth: frame.width,
-              sourceHeight: frame.height,
-            });
-
-            optimized.push({
-              canvas: canvas,
-              delay: frame.delay,
-            });
-          }
-
-          return optimized;
-        }
-
-        async _buildOptimizedGif(frames, dims) {
-          if (frames.length > 0) {
-            return await this._canvasToBlob(frames[0].canvas, "image/gif", 0.9);
-          }
-          throw new Error("Không có frame để tạo GIF");
-        }
-
-        async getStats(original, compressed) {
-          const originalSize = original.size;
-          const compressedSize = compressed.size;
-          const savings = originalSize - compressedSize;
-          const ratio = ((savings / originalSize) * 100).toFixed(2);
-
-          return {
-            originalSize,
-            compressedSize,
-            savings,
-            compressionRatio: ratio + "%",
-            originalSizeKB: (originalSize / 1024).toFixed(2) + " KB",
-            compressedSizeKB: (compressedSize / 1024).toFixed(2) + " KB",
-          };
+        _updateStats(results) {
+          this.stats.totalProcessed += results.length;
+          const totalRatio = results.reduce((sum, r) => {
+            const ratio = (r.metadata.savings / r.metadata.originalSize) * 100;
+            return sum + ratio;
+          }, 0);
+          this.stats.averageCompressionRatio = (
+            totalRatio / results.length
+          ).toFixed(2);
         }
       }
 
       // UI Logic
-      const compressor = new UltraCompress();
-      let currentPreset = "large";
+      const compressor = new UltraCompressPro();
+      let currentQuality = "balanced";
+      let currentFiles = [];
+      let currentCropFile = null;
+      let cropSettings = {
+        aspectRatio: 4 / 3,
+        frameWidth: 80,
+        posX: 10,
+        posY: 10,
+      };
 
+      // Elements
       const uploadArea = document.getElementById("uploadArea");
       const fileInput = document.getElementById("fileInput");
-      const loading = document.getElementById("loading");
-      const error = document.getElementById("error");
+      const progressSection = document.getElementById("progressSection");
+      const progressBar = document.getElementById("progressBar");
+      const progressText = document.getElementById("progressText");
       const results = document.getElementById("results");
 
-      // Preset selection
-      document.querySelectorAll(".preset-btn").forEach((btn) => {
+      // Quality selection
+      document.querySelectorAll(".quality-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document
-            .querySelectorAll(".preset-btn")
+            .querySelectorAll(".quality-btn")
             .forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          currentPreset = btn.dataset.preset;
+          currentQuality = btn.dataset.quality;
         });
       });
 
-      // Upload area click
+      // Upload handlers
       uploadArea.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", (e) =>
+        handleFiles(Array.from(e.target.files))
+      );
 
-      // File input change
-      fileInput.addEventListener("change", (e) => {
-        handleFiles(e.target.files);
-      });
-
-      // Drag and drop
       uploadArea.addEventListener("dragover", (e) => {
         e.preventDefault();
         uploadArea.classList.add("dragover");
@@ -702,98 +1858,646 @@
       uploadArea.addEventListener("drop", (e) => {
         e.preventDefault();
         uploadArea.classList.remove("dragover");
-        handleFiles(e.dataTransfer.files);
+        handleFiles(Array.from(e.dataTransfer.files));
       });
 
       async function handleFiles(files) {
         if (files.length === 0) return;
 
-        error.style.display = "none";
-        loading.style.display = "block";
+        // Show crop modal for first image
+        if (files.length === 1) {
+          showCropModal(files[0]);
+          return;
+        }
+
+        // Batch process
+        currentFiles = files;
+        processFiles();
+      }
+
+      async function processFiles() {
+        progressSection.classList.add("active");
         results.innerHTML = "";
 
-        try {
-          for (const file of files) {
-            await processFile(file);
+        const concurrent = parseInt(
+          document.getElementById("concurrent").value
+        );
+        const largePreset = getLargePreset();
+        const smallPreset = getSmallPreset();
+
+        document.getElementById("totalFiles").textContent = currentFiles.length;
+        document.getElementById("completedFiles").textContent = "0";
+
+        const startTime = performance.now();
+
+        const result = await compressor.compressMultiple(currentFiles, {
+          concurrent: concurrent,
+          quality: currentQuality,
+          customPresets: [largePreset, smallPreset],
+          onProgress: (progress) => {
+            const percent = progress.percentage;
+            progressBar.style.width = percent + "%";
+            progressBar.textContent = percent + "%";
+            progressText.textContent = `${progress.processed} / ${progress.total}`;
+            document.getElementById("completedFiles").textContent =
+              progress.processed;
+          },
+        });
+
+        const totalTime = performance.now() - startTime;
+        document.getElementById("totalTime").textContent =
+          totalTime.toFixed(0) + "ms";
+
+        const avgSpeed =
+          currentFiles.reduce((sum, f) => sum + f.size, 0) /
+          1024 /
+          (totalTime / 1000);
+        document.getElementById("avgSpeed").textContent =
+          avgSpeed.toFixed(2) + " KB/s";
+
+        // Display results
+        result.results.forEach((item) => {
+          if (item.success) {
+            displayResult(item);
+          } else {
+            displayError(item);
           }
-        } catch (err) {
-          showError(err.message);
-        } finally {
-          loading.style.display = "none";
-        }
+        });
       }
 
-      async function processFile(file) {
-        try {
-          const compressed = await compressor.compress(file, {
-            preset: currentPreset,
-          });
-          const stats = await compressor.getStats(file, compressed);
+      function displayResult(item) {
+        const div = document.createElement("div");
+        div.className = "result-item";
 
-          displayResult(file, compressed, stats);
-        } catch (err) {
-          showError(`Lỗi xử lý ${file.name}: ${err.message}`);
-        }
-      }
+        const data = item.data;
+        const v1 = data.versions[0];
+        const v2 = data.versions[1];
 
-      function displayResult(original, compressed, stats) {
-        const card = document.createElement("div");
-        card.className = "result-card";
+        div.innerHTML = `
+        <div class="result-header">
+          <h3>
+            <span>✅</span>
+            ${item.fileName}
+          </h3>
+          <span class="result-badge">2 Versions</span>
+        </div>
 
-        const originalUrl = URL.createObjectURL(original);
-        const compressedUrl = URL.createObjectURL(compressed);
-
-        card.innerHTML = `
-        <h3>✅ ${original.name}</h3>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-          <div>
-            <p style="text-align: center; color: #666; font-size: 0.9em; margin-bottom: 5px;">Ảnh gốc</p>
-            <img src="${originalUrl}" class="image-preview" alt="Original">
-          </div>
-          <div>
-            <p style="text-align: center; color: #667eea; font-size: 0.9em; margin-bottom: 5px;">Đã nén</p>
-            <img src="${compressedUrl}" class="image-preview" alt="Compressed">
+        <div class="original-info">
+          <h4>📁 Original Image</h4>
+          <div class="original-stats">
+            <div class="original-stat"><strong>Size:</strong> ${
+              data.original.sizeKB
+            } KB</div>
+            <div class="original-stat"><strong>Dimensions:</strong> ${
+              data.original.dimensions
+            }</div>
+            <div class="original-stat"><strong>Type:</strong> ${
+              data.original.type
+            }</div>
+            ${
+              data.original.animated
+                ? '<div class="original-stat"><strong>Frames:</strong> ' +
+                  data.original.frames +
+                  "</div>"
+                : ""
+            }
           </div>
         </div>
 
-        <div class="stats">
-          <div class="stat-row">
-            <span class="stat-label">📦 Dung lượng gốc:</span>
-            <span class="stat-value">${stats.originalSizeKB}</span>
-          </div>
-          <div class="stat-row">
-            <span class="stat-label">✨ Sau khi nén:</span>
-            <span class="stat-value">${stats.compressedSizeKB}</span>
-          </div>
-          <div class="stat-row">
-            <span class="stat-label">💰 Tiết kiệm:</span>
-            <span class="stat-value savings">${stats.compressionRatio}</span>
+        <div class="analysis-panel">
+          <h4>🧠 AI Analysis</h4>
+          <div class="analysis-items">
+            <div class="analysis-item">
+              <span class="analysis-label">Compressibility</span>
+              <span class="analysis-value">${
+                data.analysis.compressibility
+              }</span>
+            </div>
+            <div class="analysis-item">
+              <span class="analysis-label">Transparency</span>
+              <span class="analysis-value">${
+                data.analysis.hasTransparency ? "Yes" : "No"
+              }</span>
+            </div>
           </div>
         </div>
 
-        <button class="download-btn" onclick="downloadImage('${compressedUrl}', '${original.name}')">
-          ⬇️ Tải xuống ảnh đã nén
-        </button>
+        <div class="comparison-view">
+          <div class="version-card">
+            <div class="version-header">
+              <span class="version-title">📱 Large Version</span>
+              <span class="version-size">${
+                v1.metadata.compressedSizeKB
+              } KB</span>
+            </div>
+            <div class="image-preview-wrapper">
+              <img src="${
+                v1.preview
+              }" class="image-preview" alt="Large version">
+              <div class="image-overlay">${v1.metadata.dimensions}</div>
+            </div>
+            <div class="metadata-grid">
+              <div class="metadata-item">
+                <span class="metadata-label">Original</span>
+                <span class="metadata-value">${
+                  v1.metadata.originalSizeKB
+                } KB</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Compressed</span>
+                <span class="metadata-value">${
+                  v1.metadata.compressedSizeKB
+                } KB</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Saved</span>
+                <span class="metadata-value highlight">${
+                  v1.metadata.compressionRatio
+                }</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Time</span>
+                <span class="metadata-value">${
+                  v1.metadata.compressionTime
+                }</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Quality</span>
+                <span class="metadata-value">${v1.metadata.quality}</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Format</span>
+                <span class="metadata-value">${v1.metadata.outputFormat
+                  .split("/")[1]
+                  .toUpperCase()}</span>
+              </div>
+            </div>
+            <div class="action-buttons">
+              <button class="action-btn download-btn" onclick="downloadImage('${
+                v1.preview
+              }', 'large_${item.fileName}')">
+                ⬇️ Download
+              </button>
+            </div>
+          </div>
+
+          <div class="version-card">
+            <div class="version-header">
+              <span class="version-title">💾 Small Version</span>
+              <span class="version-size">${
+                v2.metadata.compressedSizeKB
+              } KB</span>
+            </div>
+            <div class="image-preview-wrapper">
+              <img src="${
+                v2.preview
+              }" class="image-preview" alt="Small version">
+              <div class="image-overlay">${v2.metadata.dimensions}</div>
+            </div>
+            <div class="metadata-grid">
+              <div class="metadata-item">
+                <span class="metadata-label">Original</span>
+                <span class="metadata-value">${
+                  v2.metadata.originalSizeKB
+                } KB</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Compressed</span>
+                <span class="metadata-value">${
+                  v2.metadata.compressedSizeKB
+                } KB</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Saved</span>
+                <span class="metadata-value highlight">${
+                  v2.metadata.compressionRatio
+                }</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Time</span>
+                <span class="metadata-value">${
+                  v2.metadata.compressionTime
+                }</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Quality</span>
+                <span class="metadata-value">${v2.metadata.quality}</span>
+              </div>
+              <div class="metadata-item">
+                <span class="metadata-label">Format</span>
+                <span class="metadata-value">${v2.metadata.outputFormat
+                  .split("/")[1]
+                  .toUpperCase()}</span>
+              </div>
+            </div>
+            <div class="action-buttons">
+              <button class="action-btn download-btn" onclick="downloadImage('${
+                v2.preview
+              }', 'small_${item.fileName}')">
+                ⬇️ Download
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="action-btn compare-btn" onclick="showComparison('${
+            v1.preview
+          }', '${v2.preview}', ${JSON.stringify(v1.metadata).replace(
+          /"/g,
+          "&quot;"
+        )}, ${JSON.stringify(v2.metadata).replace(/"/g, "&quot;")})">
+            🔍 Compare Versions
+          </button>
+        </div>
       `;
 
-        results.appendChild(card);
+        results.appendChild(div);
       }
 
-      function downloadImage(url, originalName) {
+      function displayError(item) {
+        const div = document.createElement("div");
+        div.className = "error-message";
+        div.innerHTML = `<strong>❌ ${item.fileName}</strong><br>${item.error}`;
+        results.appendChild(div);
+      }
+
+      function getLargePreset() {
+        const value = document.getElementById("largePreset").value;
+        const presets = {
+          864: { maxDimension: 864, targetSize: 45 * 1024, aspectRatio: 4 / 3 },
+          1024: {
+            maxDimension: 1024,
+            targetSize: 80 * 1024,
+            aspectRatio: 4 / 3,
+          },
+          1200: {
+            maxDimension: 1200,
+            targetSize: 100 * 1024,
+            aspectRatio: 16 / 9,
+          },
+        };
+        return presets[value];
+      }
+
+      function getSmallPreset() {
+        const value = document.getElementById("smallPreset").value;
+        const presets = {
+          420: { maxDimension: 420, targetSize: 16 * 1024, aspectRatio: 4 / 3 },
+          600: { maxDimension: 600, targetSize: 30 * 1024, aspectRatio: 4 / 3 },
+          800: {
+            maxDimension: 800,
+            targetSize: 50 * 1024,
+            aspectRatio: 16 / 9,
+          },
+        };
+        return presets[value];
+      }
+
+      function downloadImage(url, filename) {
         const a = document.createElement("a");
         a.href = url;
-        a.download = "compressed_" + originalName;
+        a.download = filename;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
       }
 
-      function showError(message) {
-        error.textContent = "❌ " + message;
-        error.style.display = "block";
+      // Crop Modal Functions
+      function showCropModal(file) {
+        currentCropFile = file;
+        const modal = document.getElementById("cropModal");
+        const img = document.getElementById("cropImage");
+
+        img.src = URL.createObjectURL(file);
+        img.onload = () => {
+          initCropFrame();
+          modal.classList.add("active");
+        };
       }
 
-      // Make downloadImage global
+      function closeCropModal() {
+        document.getElementById("cropModal").classList.remove("active");
+        currentCropFile = null;
+      }
+
+      function initCropFrame() {
+        const img = document.getElementById("cropImage");
+        const frame = document.getElementById("cropFrame");
+        const container = document.getElementById("cropPreviewArea");
+
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        const frameWidth = (imgRect.width * cropSettings.frameWidth) / 100;
+        const frameHeight = frameWidth / cropSettings.aspectRatio;
+
+        const left =
+          imgRect.left -
+          containerRect.left +
+          (imgRect.width * cropSettings.posX) / 100;
+        const top =
+          imgRect.top -
+          containerRect.top +
+          (imgRect.height * cropSettings.posY) / 100;
+
+        frame.style.width = frameWidth + "px";
+        frame.style.height = frameHeight + "px";
+        frame.style.left = left + "px";
+        frame.style.top = top + "px";
+
+        makeDraggable(frame, img);
+      }
+
+      function makeDraggable(frame, img) {
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        frame.addEventListener("mousedown", (e) => {
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          initialLeft = frame.offsetLeft;
+          initialTop = frame.offsetTop;
+          e.preventDefault();
+        });
+
+        document.addEventListener("mousemove", (e) => {
+          if (!isDragging) return;
+
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+
+          const newLeft = initialLeft + dx;
+          const newTop = initialTop + dy;
+
+          const container = document.getElementById("cropPreviewArea");
+          const imgRect = img.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+
+          const maxLeft =
+            imgRect.right - containerRect.left - frame.offsetWidth;
+          const maxTop =
+            imgRect.bottom - containerRect.top - frame.offsetHeight;
+          const minLeft = imgRect.left - containerRect.left;
+          const minTop = imgRect.top - containerRect.top;
+
+          frame.style.left =
+            Math.max(minLeft, Math.min(maxLeft, newLeft)) + "px";
+          frame.style.top = Math.max(minTop, Math.min(maxTop, newTop)) + "px";
+        });
+
+        document.addEventListener("mouseup", () => {
+          isDragging = false;
+        });
+      }
+
+      document.getElementById("aspectRatio").addEventListener("change", (e) => {
+        cropSettings.aspectRatio = parseFloat(e.target.value);
+        initCropFrame();
+      });
+
+      document.getElementById("frameWidth").addEventListener("input", (e) => {
+        cropSettings.frameWidth = parseInt(e.target.value);
+        initCropFrame();
+      });
+
+      document.getElementById("framePosX").addEventListener("input", (e) => {
+        cropSettings.posX = parseInt(e.target.value);
+        initCropFrame();
+      });
+
+      document.getElementById("framePosY").addEventListener("input", (e) => {
+        cropSettings.posY = parseInt(e.target.value);
+        initCropFrame();
+      });
+
+      function resetCrop() {
+        cropSettings = {
+          aspectRatio: 4 / 3,
+          frameWidth: 80,
+          posX: 10,
+          posY: 10,
+        };
+        document.getElementById("aspectRatio").value = "1.333";
+        document.getElementById("frameWidth").value = "80";
+        document.getElementById("framePosX").value = "10";
+        document.getElementById("framePosY").value = "10";
+        initCropFrame();
+      }
+
+      async function applyCropAndCompress() {
+        if (!currentCropFile) return;
+
+        closeCropModal();
+        progressSection.classList.add("active");
+        results.innerHTML = "";
+
+        const img = document.getElementById("cropImage");
+        const frame = document.getElementById("cropFrame");
+        const container = document.getElementById("cropPreviewArea");
+
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const frameRect = frame.getBoundingClientRect();
+
+        // Calculate crop coordinates relative to original image
+        const scaleX = img.naturalWidth / imgRect.width;
+        const scaleY = img.naturalHeight / imgRect.height;
+
+        const cropX = (frameRect.left - imgRect.left) * scaleX;
+        const cropY = (frameRect.top - imgRect.top) * scaleY;
+        const cropWidth = frame.offsetWidth * scaleX;
+        const cropHeight = frame.offsetHeight * scaleY;
+
+        // Create cropped canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = cropWidth;
+        canvas.height = cropHeight;
+        const ctx = canvas.getContext("2d");
+
+        const fullImg = await compressor._loadImage(currentCropFile);
+        ctx.drawImage(
+          fullImg,
+          cropX,
+          cropY,
+          cropWidth,
+          cropHeight,
+          0,
+          0,
+          cropWidth,
+          cropHeight
+        );
+
+        // Convert canvas to blob
+        const croppedBlob = await new Promise((resolve) => {
+          canvas.toBlob(resolve, currentCropFile.type, 0.95);
+        });
+
+        // Create file from blob
+        const croppedFile = new File([croppedBlob], currentCropFile.name, {
+          type: currentCropFile.type,
+        });
+
+        // Compress the cropped image
+        currentFiles = [croppedFile];
+        processFiles();
+      }
+
+      // Comparison Modal Functions
+      function showComparison(img1, img2, meta1, meta2) {
+        const modal = document.getElementById("comparisonModal");
+        document.getElementById("compareImage1").src = img1;
+        document.getElementById("compareImage2").src = img2;
+
+        const metadata1 =
+          typeof meta1 === "string"
+            ? JSON.parse(meta1.replace(/&quot;/g, '"'))
+            : meta1;
+        const metadata2 =
+          typeof meta2 === "string"
+            ? JSON.parse(meta2.replace(/&quot;/g, '"'))
+            : meta2;
+
+        const metadataDiv = document.getElementById("compareMetadata");
+        metadataDiv.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+          <div style="background: #f9fafb; padding: 20px; border-radius: 15px;">
+            <h3 style="color: #7e22ce; margin-bottom: 15px;">📱 Large Version Stats</h3>
+            <div style="display: grid; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Size:</span>
+                <strong>${metadata1.compressedSizeKB} KB</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Dimensions:</span>
+                <strong>${metadata1.dimensions}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Compression:</span>
+                <strong style="color: #10b981;">${
+                  metadata1.compressionRatio
+                }</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Quality:</span>
+                <strong>${metadata1.quality}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Speed:</span>
+                <strong>${metadata1.compressionSpeed}</strong>
+              </div>
+            </div>
+          </div>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 15px;">
+            <h3 style="color: #7e22ce; margin-bottom: 15px;">💾 Small Version Stats</h3>
+            <div style="display: grid; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Size:</span>
+                <strong>${metadata2.compressedSizeKB} KB</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Dimensions:</span>
+                <strong>${metadata2.dimensions}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Compression:</span>
+                <strong style="color: #10b981;">${
+                  metadata2.compressionRatio
+                }</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Quality:</span>
+                <strong>${metadata2.quality}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px; background: white; border-radius: 8px;">
+                <span style="color: #6b7280;">Speed:</span>
+                <strong>${metadata2.compressionSpeed}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); padding: 20px; border-radius: 15px; margin-top: 20px; border-left: 5px solid #3b82f6;">
+          <h4 style="color: #1e40af; margin-bottom: 10px;">📊 Comparison Summary</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div>
+              <div style="font-size: 0.85em; color: #6b7280;">Size Difference</div>
+              <div style="font-size: 1.3em; font-weight: 700; color: #1e40af;">
+                ${(
+                  parseFloat(metadata1.compressedSizeKB) -
+                  parseFloat(metadata2.compressedSizeKB)
+                ).toFixed(2)} KB
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 0.85em; color: #6b7280;">Resolution Ratio</div>
+              <div style="font-size: 1.3em; font-weight: 700; color: #1e40af;">
+                ${(metadata1.width / metadata2.width).toFixed(2)}x
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 0.85em; color: #6b7280;">Avg Compression</div>
+              <div style="font-size: 1.3em; font-weight: 700; color: #10b981;">
+                ${(
+                  (parseFloat(metadata1.compressionRatio) +
+                    parseFloat(metadata2.compressionRatio)) /
+                  2
+                ).toFixed(2)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+        modal.classList.add("active");
+      }
+
+      function closeComparisonModal() {
+        document.getElementById("comparisonModal").classList.remove("active");
+      }
+
+      // Make functions global
       window.downloadImage = downloadImage;
+      window.showComparison = showComparison;
+      window.closeCropModal = closeCropModal;
+      window.closeComparisonModal = closeComparisonModal;
+      window.resetCrop = resetCrop;
+      window.applyCropAndCompress = applyCropAndCompress;
+
+      // Image preview zoom
+      document.addEventListener("click", (e) => {
+        if (e.target.classList.contains("image-preview")) {
+          const modal = document.createElement("div");
+          modal.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.95); z-index: 3000;
+          display: flex; align-items: center; justify-content: center;
+          padding: 20px; cursor: zoom-out;
+        `;
+
+          const img = document.createElement("img");
+          img.src = e.target.src;
+          img.style.cssText =
+            "max-width: 90%; max-height: 90%; border-radius: 15px;";
+
+          modal.appendChild(img);
+          document.body.appendChild(modal);
+
+          modal.addEventListener("click", () => {
+            document.body.removeChild(modal);
+          });
+        }
+      });
+
+      console.log(
+        "%c🚀 UltraCompress Pro v2.0 Ready!",
+        "color: #7e22ce; font-size: 20px; font-weight: bold;"
+      );
+      console.log(
+        "%cFeatures: Dual Version Output | AI Analysis | Crop & Position | Batch Processing",
+        "color: #6b21a8; font-size: 14px;"
+      );
     </script>
   </body>
 </html>
