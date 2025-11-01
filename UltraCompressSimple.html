@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>App Image Compressor Example</title>
+  </head>
+  <body>
+    <h1>Tải lên ảnh tỷ lệ 4:3</h1>
+    <input type="file" id="image-input" accept="image/*" />
+    <div id="results"></div>
+
+    <!-- Nhúng tệp JS đã tùy chỉnh ở trên -->
+    <script src="UltraCompressSimple.js"></script>
+
+    <script>
+      const input = document.getElementById("image-input");
+      const resultsDiv = document.getElementById("results");
+
+      input.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        resultsDiv.innerHTML = "<p>Đang xử lý, vui lòng chờ...</p>";
+
+        // 1. Khởi tạo compressor dành riêng cho app
+        const appCompressor = new AppImageCompressor();
+
+        // 2. Gọi phương thức duy nhất để xử lý
+        const result = await appCompressor.processImage(file);
+
+        // 3. Xử lý kết quả
+        if (result.success) {
+          console.log("Xử lý thành công!", result);
+
+          // Hiển thị kết quả
+          resultsDiv.innerHTML = `
+                    <h2>Xử lý thành công!</h2>
+                    
+                    <h3>Ảnh gốc</h3>
+                    <p>
+                        Tên: ${result.original.name} <br>
+                        Kích thước: ${(result.original.size / 1024).toFixed(
+                          2
+                        )} KB <br>
+                        Chiều Dài/Rộng: ${result.original.width}x${
+            result.original.height
+          }
+                    </p>
+
+                    <hr>
+
+                    <h3>Phiên bản Lớn (target <= 40KB)</h3>
+                    <img src="${
+                      result.large.url
+                    }" alt="Large Version" style="max-width: 400px; border: 1px solid #ccc;">
+                    <p>
+                        Kích thước: <b>${(
+                          result.large.blob.size / 1024
+                        ).toFixed(2)} KB</b> <br>
+                        Chiều Dài/Rộng: ${result.large.metadata.width}x${
+            result.large.metadata.height
+          }
+                    </p>
+
+                    <hr>
+
+                    <h3>Phiên bản Nhỏ (target <= 15KB)</h3>
+                    <img src="${
+                      result.small.url
+                    }" alt="Small Version" style="max-width: 200px; border: 1px solid #ccc;">
+                    <p>
+                        Kích thước: <b>${(
+                          result.small.blob.size / 1024
+                        ).toFixed(2)} KB</b> <br>
+                        Chiều Dài/Rộng: ${result.small.metadata.width}x${
+            result.small.metadata.height
+          }
+                    </p>
+                `;
+        } else {
+          console.error("Xử lý thất bại:", result.error);
+          resultsDiv.innerHTML = `<p style="color: red;"><b>Lỗi:</b> ${result.error}</p>`;
+        }
+      });
+    </script>
+  </body>
+</html>
