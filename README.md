@@ -4,9 +4,9 @@
 
 Zero dependencies • Framework agnostic • TypeScript ready • AI-powered optimization
 
-[![npm version](https://img.shields.io/npm/v/ultracompresspro.svg)](https://www.npmjs.com/package/ultracompresspro)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Bundle Size](https://img.shields.io/bundlephobia/minzip/ultracompresspro)](https://bundlephobia.com/package/ultracompresspro)
+[![npm version]
+[![License: MIT]
+[![Bundle Size]
 
 ---
 
